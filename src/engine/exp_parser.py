@@ -17,9 +17,11 @@ WORD_TO_NUM = {
     "ten": 10,
     "eleven": 11,
     "twelve": 12,
+    "fifteen": 15,
+    "twenty": 20,
 }
 
-# Senior titles and phrases that disqualify junior/mid-level 1-4 year searches
+# Senior titles and phrases
 SENIOR_DISQUALIFIERS = [
     r"\b(general\s+counsel|chief\s+legal\s+officer|clo\b|vp\s+of\s+legal|vice\s+president\s+legal)\b",
     r"\b(senior\s+director|managing\s+director|director[,\s]+production|director[,\s]+tax|director[,\s]+finance)\b",
@@ -30,14 +32,14 @@ SENIOR_DISQUALIFIERS = [
 
 # Patterns to extract experience numbers (digits or words)
 EXP_RANGE_PATTERNS = [
-    # 1-3 years, 1 to 3 years, 2-4 years, 3-5 years
-    r"(\d+|one|two|three|four|five|six|seven|eight|ten)\s*(?:-|–|to)\s*(\d+|one|two|three|four|five|six|seven|eight|ten)\s*\+?\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law|\s+pqe|\s+post-bar)?",
-    # 2+ years, 1+ year, 3+ years, 4+ years
-    r"(\d+|one|two|three|four|five|six|seven|eight|ten)\s*\+\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law|\s+pqe|\s+post-bar)?",
-    # minimum 4 years, at least four (4) years
-    r"(?:minimum\s+(?:of\s+)?|at\s+least\s+)(\d+|one|two|three|four|five|six|seven|eight|ten)(?:\s*\(\s*\d+\s*\))?\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law)?",
-    # 2 years of experience
-    r"(\d+|one|two|three|four|five|six|seven|eight|ten)\s*years?(?:\s+of)?(?:\s+legal|\s+in-house|\s+relevant|\s+experience|\s+practice|\s+law|\s+pqe)",
+    # 1-3 years, 1 to 3 years, 2-4 years, 3-5 years, 8-10 years, 10-15 years
+    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*(?:-|–|to)\s*(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen|twenty)\s*\+?\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law|\s+pqe|\s+post-bar)?",
+    # 10+ years, 7+ years, 5+ years, 2+ years, 1+ year
+    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*\+\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law|\s+pqe|\s+post-bar)?",
+    # minimum 10 years, at least four (4) years
+    r"(?:minimum\s+(?:of\s+)?|at\s+least\s+)(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)(?:\s*\(\s*\d+\s*\))?\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law)?",
+    # 10 years of experience, 3 years of legal practice
+    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*years?(?:\s+of)?(?:\s+legal|\s+in-house|\s+relevant|\s+experience|\s+practice|\s+law|\s+pqe)",
 ]
 
 # Junior indicators
@@ -70,11 +72,7 @@ def extract_experience(
         re.search(r"\b(associate\s+counsel|associate\s+corporate|associate\s+commercial|associate\s+attorney|junior|assistant\s+counsel|associate\s+director)\b", title_lower)
     )
 
-    # Check for senior disqualifiers in title
-    if any(re.search(pat, title_lower, re.IGNORECASE) for pat in SENIOR_DISQUALIFIERS) and not has_junior_title:
-        return None, None, "Senior Title", False, False, f"Senior role detected in title: '{title}'"
-
-    # Search for experience mentions in text
+    # 1. Search for experience numbers first in text/description
     found_ranges = []
     for pattern in EXP_RANGE_PATTERNS:
         for match in re.finditer(pattern, combined, re.IGNORECASE):
@@ -90,12 +88,12 @@ def extract_experience(
                     found_ranges.append((exp_min, None, match.group(0)))
 
     if found_ranges:
-        valid_ranges = [r for r in found_ranges if r[0] <= 20]
+        valid_ranges = [r for r in found_ranges if r[0] <= 30]
         if valid_ranges:
             primary = valid_ranges[0]
             exp_min, exp_max, raw_str = primary
 
-            # Disqualification check for 5+ years
+            # Disqualification / High requirement check for 5+ years
             if exp_min >= 5:
                 return (
                     exp_min,
@@ -136,7 +134,11 @@ def extract_experience(
                     f"Experience requirement {raw_str.strip()} is outside 1-4 years",
                 )
 
-    # Check for junior phrasing if no numbers found
+    # 2. Check for senior disqualifiers in title if no numbers found
+    if any(re.search(pat, title_lower, re.IGNORECASE) for pat in SENIOR_DISQUALIFIERS) and not has_junior_title:
+        return None, None, "Senior Title", False, False, f"Senior role detected in title: '{title}'"
+
+    # 3. Check for junior phrasing if no numbers found
     has_junior_phrase = any(re.search(pat, combined, re.IGNORECASE) for pat in JUNIOR_INDICATORS)
     if has_junior_phrase or has_junior_title:
         return 1, 3, "Junior / Associate indicator", True, True, "Title/description indicates early-career legal role (1-3 yrs)"

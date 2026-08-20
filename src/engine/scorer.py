@@ -169,6 +169,35 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         job.match_reasons = match_reasons
         return total_score, match_reasons, is_qualified
 
+    # Prepare detailed badge reasons for all other active tiers
+    reasons = []
+
+    # Experience Badge Pill
+    if exp_min and exp_min >= 5:
+        reasons.append(f"⚠️ Requires {exp_min}+ years experience (exceeds 1-4 years target)")
+    elif "Senior role detected in title" in exp_reason:
+        reasons.append(f"⚠️ {exp_reason} (exceeds 1-4 years target)")
+    elif is_exp_match:
+        reasons.append(f"🎯 {exp_reason}")
+    else:
+        reasons.append(f"📋 {exp_reason}")
+
+    # Degree / Bar Badge Pill
+    if is_jd_req:
+        reasons.append("🎓 JD / CA Bar Required")
+    else:
+        reasons.append("ℹ️ Non-Attorney / Legal Operations & Business Affairs")
+
+    # Domain / Studio Fit Pill
+    if "business affairs" in title_lower or "business and legal" in title_lower or "entertainment" in combined_lower:
+        reasons.append("🎬 Entertainment & Media Business Affairs in LA")
+    elif is_ai or "ai" in title_lower or "legal innovation" in title_lower:
+        reasons.append("🤖 Legal AI & Technology Operations")
+    elif "contracts" in title_lower or "licensing" in title_lower:
+        reasons.append("📑 Commercial Contracts & Licensing in LA")
+    else:
+        reasons.append("🏢 Corporate & Commercial Legal in LA")
+
     # TIER 2: Senior / Stretch Legal Roles in LA (55% - 74%)
     if is_jd_req and (exp_min or 0) >= 5:
         score = 55
@@ -177,12 +206,8 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "warner", "fox", "netflix"]):
             score += 5
         job.match_score = score
-        job.match_reasons = [
-            "⭐ Senior / Stretch Legal Opportunity in LA",
-            f"📋 {exp_reason}",
-            "🎓 JD / CA Bar Required",
-        ]
-        return score, job.match_reasons, True
+        job.match_reasons = reasons
+        return score, reasons, True
 
     # TIER 3: Legal Operations, AI Enablement & Contracts Specialist (35% - 54%)
     if any(k in title_lower for k in ["legal ops", "legal innovation", "contracts", "compliance", "privacy", "operations"]):
@@ -192,11 +217,8 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "netflix", "riot"]):
             score += 5
         job.match_score = score
-        job.match_reasons = [
-            "🛠️ Legal Operations / Contracts / AI Enablement",
-            "🏢 Entertainment / Corporate Legal Department in LA",
-        ]
-        return score, job.match_reasons, True
+        job.match_reasons = reasons
+        return score, reasons, True
 
     # TIER 4: Legal Support, Rights Management & Licensing (20% - 34%)
     if any(k in title_lower for k in ["paralegal", "coordinator", "licensing", "rights", "analyst"]):
@@ -204,12 +226,10 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         if "intellectual property" in title_lower or "licensing" in title_lower:
             score += 5
         job.match_score = score
-        job.match_reasons = [
-            "📌 Legal Support / Licensing / Rights Management in LA",
-        ]
-        return score, job.match_reasons, True
+        job.match_reasons = reasons
+        return score, reasons, True
 
-    # Fallback for unclassified legal roles
+    # Fallback for other legal roles
     job.match_score = 20
-    job.match_reasons = ["📌 Legal-Adjacent Opportunity in Los Angeles"]
-    return 20, job.match_reasons, True
+    job.match_reasons = reasons
+    return 20, reasons, True
