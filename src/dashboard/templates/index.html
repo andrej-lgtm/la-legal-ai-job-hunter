@@ -60,13 +60,10 @@
                 </div>
                 <div class="flex items-center gap-2 sm:gap-3">
                     <!-- Live Update Message Badge -->
-                    <div class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 sm:px-3 py-1.5 flex items-center gap-2 text-xs shadow-inner">
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 sm:px-3 py-1.5 flex items-center gap-2 text-xs shadow-inner" title="Auto-scrapes daily at 8:00 AM & 5:00 PM PST">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                         <span class="text-slate-400 hidden xs:inline">Updated:</span>
                         <span class="font-bold text-indigo-300 text-[11px] sm:text-xs" x-text="stats.last_scraped_at || 'Today at 5:00 PM PST'"></span>
-                        <button @click="triggerScrape()" :disabled="isScraping" class="ml-0.5 p-1 hover:text-indigo-400 text-slate-400 transition cursor-pointer" title="Refresh Live Feed">
-                            <span :class="isScraping ? 'animate-spin inline-block' : ''">🔄</span>
-                        </button>
                     </div>
                     <button @click="lockDashboard()" class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold transition cursor-pointer inline-flex items-center gap-1" title="Lock Dashboard">
                         <span>🔒</span>
