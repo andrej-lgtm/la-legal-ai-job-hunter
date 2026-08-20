@@ -127,17 +127,37 @@ def fetch_full_job_details(url: str) -> Tuple[Optional[str], Optional[str]]:
             else:
                 return None, None
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # 1. Extract exact posting date / relative time
+        # 1. Extract exact posting date from JSON-LD or HTML elements
         posted_time = None
-        time_el = (
-            soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")})
-            or soup.find("time")
-            or soup.find("span", {"class": re.compile(r"date|posted")})
-        )
-        if time_el:
-            posted_time = time_el.get_text().strip()
+        for s in soup.find_all("script", type="application/ld+json"):
+            try:
+                data = json.loads(s.get_text())
+                if isinstance(data, dict) and data.get("datePosted"):
+                    posted_time = str(data["datePosted"]).strip()
+                    break
+            except Exception:
+                pass
+
+        if not posted_time:
+            # Check for Last Updated / Posted date text
+            m = re.search(r"(?:Last Updated|Posted|Date Posted):\s*([A-Za-z]+\s+\d{1,2},\s*\d{4})", resp.text, re.IGNORECASE)
+            if m:
+                raw_d = m.group(1).strip()
+                try:
+                    d = datetime.strptime(raw_d, "%B %d, %Y")
+                    posted_time = d.strftime("%Y-%m-%d")
+                except Exception:
+                    posted_time = raw_d
+
+        if not posted_time:
+            time_el = (
+                soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")})
+                or soup.find("time")
+            )
+            if time_el:
+                txt = time_el.get_text().strip()
+                if not any(k in txt for k in ["•", "schedule", "locked"]):
+                    posted_time = txt
 
         # 2. Extract description
         desc = None

@@ -128,26 +128,43 @@ class EntertainmentCareersScraper(BaseScraper):
                 company = comp_el.get_text().strip()
                 company = re.sub(r"^About\s+", "", company).strip()
 
+            # 1. Extract exact Location from JSON-LD schema or page
             location = "Los Angeles, CA"
-            loc_el = soup.find("span", {"class": re.compile(r"location|city")})
-            if loc_el:
-                loc_text = loc_el.get_text().strip()
-                if any(k in loc_text.lower() for k in ["los angeles", "burbank", "culver", "hollywood", "santa monica", "beverly", "universal city"]):
-                    location = loc_text
+            for s in soup.find_all("script", type="application/ld+json"):
+                try:
+                    data = json.loads(s.get_text())
+                    if isinstance(data, dict):
+                        job_loc = data.get("jobLocation", {})
+                        if isinstance(job_loc, dict):
+                            addr = job_loc.get("address", {})
+                            if isinstance(addr, dict):
+                                city = addr.get("addressLocality")
+                                region = addr.get("addressRegion")
+                                if city and region:
+                                    location = f"{city}, {region}"
+                                elif city:
+                                    location = city
+                except Exception:
+                    pass
 
-            # Extract exact posted date from JSON-LD schema or HTML text
+            if location == "Los Angeles, CA" and soup.title:
+                m_loc = re.search(r"in\s+([A-Za-z\s]+,\s*[A-Z]{2})", soup.title.get_text())
+                if m_loc:
+                    location = m_loc.group(1).strip()
+
+            # 2. Extract exact posted date from JSON-LD schema or HTML text
             posted_date = "Today"
             for s in soup.find_all("script", type="application/ld+json"):
                 try:
                     data = json.loads(s.get_text())
                     if isinstance(data, dict) and data.get("datePosted"):
-                        posted_date = data["datePosted"]
+                        posted_date = str(data["datePosted"]).strip()
                         break
                 except Exception:
                     pass
 
             if posted_date == "Today":
-                m = re.search(r"Posted:\s*([A-Za-z]+\s+\d{1,2},\s*\d{4})", resp.text, re.IGNORECASE)
+                m = re.search(r"(?:Last Updated|Posted|Date Posted):\s*([A-Za-z]+\s+\d{1,2},\s*\d{4})", resp.text, re.IGNORECASE)
                 if m:
                     raw_date = m.group(1).strip()
                     try:
@@ -155,6 +172,13 @@ class EntertainmentCareersScraper(BaseScraper):
                         posted_date = d.strftime("%Y-%m-%d")
                     except Exception:
                         posted_date = raw_date
+
+            # Skip non-local roles if specifically not in Greater LA / California or Remote
+            loc_lower = location.lower()
+            is_ca_or_remote = any(k in loc_lower for k in ["los angeles", "burbank", "culver", "hollywood", "santa monica", "beverly", "century city", "california", "ca", "remote"])
+            if not is_ca_or_remote:
+                logger.info(f"Skipping non-LA EntertainmentCareers posting ({location}): {title}")
+                return None
 
             desc_el = (
                 soup.find("div", {"class": re.compile(r"column\s+middle|job-description|description|job_description")})
