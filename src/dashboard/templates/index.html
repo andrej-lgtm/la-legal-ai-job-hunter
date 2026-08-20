@@ -398,7 +398,7 @@
                 jobs: [],
                 allAvailableJobs: [],
                 stats: {},
-                loading: false,
+                loading: true,
                 isScraping: false,
                 searchQuery: '',
                 selectedCategory: '',
@@ -417,6 +417,7 @@
                     if (window.INITIAL_JOBS && window.INITIAL_JOBS.length > 0) {
                         this.jobs = [...window.INITIAL_JOBS];
                         this.allAvailableJobs = [...window.INITIAL_JOBS];
+                        this.loading = false;
                     }
                     if (window.INITIAL_STATS) {
                         this.stats = { ...window.INITIAL_STATS };
@@ -455,6 +456,7 @@
                             if (window.INITIAL_JOBS && window.INITIAL_JOBS.length > 0) {
                                 this.jobs = [...window.INITIAL_JOBS];
                                 this.allAvailableJobs = [...window.INITIAL_JOBS];
+                                this.loading = false;
                             }
                             await this.fetchStats();
                             await this.fetchJobs();
@@ -490,152 +492,8 @@
                     } catch (e) {}
                 },
 
-                setSort(sortKey) {
-                    this.sortBy = sortKey;
-                },
-
-                resolveJobCoords(location) {
-                    if (!location) return LA_COORDINATES['los angeles'];
-                    const loc = location.toLowerCase();
-                    for (const [key, coords] of Object.entries(LA_COORDINATES)) {
-                        if (loc.includes(key)) {
-                            return coords;
-                        }
-                    }
-                    return LA_COORDINATES['los angeles'];
-                },
-
-                calculateDistance(location) {
-                    const dest = this.resolveJobCoords(location);
-                    if (!dest) return null;
-                    return haversineMiles(BASE_COORDINATES.lat, BASE_COORDINATES.lon, dest.lat, dest.lon);
-                },
-
-                getNumericPay(job) {
-                    if (job.salary_max) {
-                        return job.salary_interval === 'hourly' ? job.salary_max * 2080 : job.salary_max;
-                    }
-                    if (job.salary_min) {
-                        return job.salary_interval === 'hourly' ? job.salary_min * 2080 : job.salary_min;
-                    }
-                    return 0;
-                },
-
-                getNumericAgeDays(job) {
-                    let dStr = job.date_posted || job.date_discovered;
-                    if (!dStr) return 0;
-                    let s = dStr.toLowerCase();
-                    if (s.includes('today') || s.includes('hour') || s.includes('just now')) return 0;
-                    let dM = s.match(/(\d+)\s*d/);
-                    if (dM) return parseInt(dM[1]);
-                    let wM = s.match(/(\d+)\s*w/);
-                    if (wM) return parseInt(wM[1]) * 7;
-                    let mM = s.match(/(\d+)\s*mo/);
-                    if (mM) return parseInt(mM[1]) * 30;
-                    return 0;
-                },
-
-                get sortedJobs() {
-                    let list = [...this.jobs];
-                    if (this.sortBy === 'match') {
-                        list.sort((a, b) => b.match_score - a.match_score);
-                    } else if (this.sortBy === 'pay') {
-                        list.sort((a, b) => this.getNumericPay(b) - this.getNumericPay(a));
-                    } else if (this.sortBy === 'date') {
-                        list.sort((a, b) => this.getNumericAgeDays(a) - this.getNumericAgeDays(b));
-                    } else if (this.sortBy === 'distance') {
-                        list.sort((a, b) => {
-                            let distA = this.calculateDistance(a.location) || 999;
-                            let distB = this.calculateDistance(b.location) || 999;
-                            return distA - distB;
-                        });
-                    }
-                    return list;
-                },
-
-                get activeCategories() {
-                    const counts = {};
-                    this.allAvailableJobs.forEach(j => {
-                        const cat = j.category;
-                        if (cat) counts[cat] = (counts[cat] || 0) + 1;
-                    });
-
-                    return Object.keys(counts)
-                        .filter(cat => counts[cat] > 0)
-                        .map(cat => ({
-                            key: cat,
-                            label: this.categoryMeta[cat]?.label || cat,
-                            count: counts[cat]
-                        }))
-                        .sort((a, b) => b.count - a.count);
-                },
-
-                getCategoryLabel(cat) {
-                    return this.categoryMeta[cat]?.label || cat;
-                },
-
-                toggleExpand(id) {
-                    this.expandedJobs[id] = !this.expandedJobs[id];
-                },
-
-                formatAge(datePosted, dateDiscovered) {
-                    let dStr = datePosted || dateDiscovered;
-                    if (!dStr) return '🔥 Today';
-                    try {
-                        let posted = new Date(dStr.replace('Z', '+00:00'));
-                        if (isNaN(posted.getTime())) {
-                            let parts = dStr.split('T')[0].split('-');
-                            if (parts.length === 3) {
-                                posted = new Date(parts[0], parts[1] - 1, parts[2]);
-                            }
-                        }
-                        if (isNaN(posted.getTime())) return '🔥 Today';
-                        let diffDays = Math.floor((new Date() - posted) / (1000 * 60 * 60 * 24));
-                        if (diffDays <= 0) return '🔥 Today';
-                        if (diffDays === 1) return '🕒 1d ago';
-                        if (diffDays < 7) return `🕒 ${diffDays}d ago`;
-                        if (diffDays < 14) return '🕒 1w ago';
-                        if (diffDays < 21) return '🕒 2w ago';
-                        if (diffDays <= 30) return `🕒 ${Math.floor(diffDays / 7)}w ago`;
-                        return '🕒 >30d ago';
-                    } catch (e) {
-                        return '🔥 Today';
-                    }
-                },
-
-                cleanSnippet(text) {
-                    if (!text) return '';
-                    let clean = text.replace(/â€¢/g, '• ')
-                                    .replace(/â€™/g, "'")
-                                    .replace(/â€˜/g, "'")
-                                    .replace(/â€œ/g, '"')
-                                    .replace(/â€ /g, '"')
-                                    .replace(/â€“/g, '–')
-                                    .replace(/â€”/g, '—')
-                                    .replace(/Â/g, '')
-                                    .replace(/📌/g, '')
-                                    .replace(/<[^>]+>/g, '')
-                                    .replace(/\s+/g, ' ')
-                                    .trim();
-                    return clean;
-                },
-
-                cleanDescription(text) {
-                    if (!text) return 'No full description available.';
-                    let clean = text.replace(/â€¢/g, '• ')
-                                    .replace(/â€™/g, "'")
-                                    .replace(/â€˜/g, "'")
-                                    .replace(/â€œ/g, '"')
-                                    .replace(/â€ /g, '"')
-                                    .replace(/â€“/g, '–')
-                                    .replace(/â€”/g, '—')
-                                    .replace(/Â/g, '')
-                                    .replace(/<[^>]+>/g, '')
-                                    .trim();
-                    return clean;
-                },
-
                 async fetchJobs() {
+                    this.loading = true;
                     try {
                         let fetched = [];
                         let useLocal = false;
@@ -697,6 +555,8 @@
                         }
                     } catch (e) {
                         console.error("Error fetching jobs:", e);
+                    } finally {
+                        this.loading = false;
                     }
                 },
 
