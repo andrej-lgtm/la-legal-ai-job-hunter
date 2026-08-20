@@ -1,7 +1,7 @@
-"""Personalized Resume Matcher with continuous progressive experience and practice area calibration."""
+"""Personalized Resume Matcher with continuous progressive experience, practice area calibration, and pay alignment."""
 
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from src.engine.candidate_profile import CandidateProfile, HARRISON_WHEELER
 from src.scrapers.base import JobPosting
 
@@ -13,17 +13,11 @@ def match_candidate_to_job(
     """
     Score a job posting tailored to Harrison Wheeler's resume:
     - Base: 40 pts for passing Hard Gates (LA County, JD/CA Bar, <30d Recency).
-    - Dimension 1: Experience Years Calibration:
-        * 1–3 yrs: +25 pts (Target sweet spot)
-        * 4 yrs: +10 pts (Feasible reach)
-        * 5 yrs: -15 pts (Loses points)
-        * 6–7 yrs: -25 pts (Loses points heavily)
-        * 8–10 yrs: -35 pts
-        * 11–14 yrs: -45 pts
-        * 15+ yrs: -60 pts
-    - Dimension 2: Seniority Title Calibration (+10 for Associate/Counsel, -20 to -35 for VP/GC/Director).
-    - Dimension 3: Practice Area & Domain Fit (+20 for AI/LegalTech, +18 for Entertainment BA, -20 for Real Estate/Tax).
+    - Dimension 1: Experience Years Calibration (1-3 yrs: +25, 4 yrs: +10, 5 yrs: -15, 6-7 yrs: -25, 8-10 yrs: -35, 11-14 yrs: -45, 15+ yrs: -60).
+    - Dimension 2: Seniority Title Calibration (+10 for Associate/Counsel, -15 to -25 for VP/GC/Director).
+    - Dimension 3: Practice Area & Domain Fit (+20 for AI/LegalTech, +18 for Entertainment BA, -25 for Real Estate/Tax).
     - Dimension 4: Candidate Superpowers & Studio Affinity (+4 to +10 pts).
+    - Dimension 5: Compensation Alignment (Ideal: $170k+ / $80+/hr: +10, $140k-$169k: -5, $110k-$139k: -15, <$110k: -25, Unstated: 0 neutral).
 
     Returns:
         (total_score: int, personalized_reasons: List[str], is_qualified: bool)
@@ -38,7 +32,7 @@ def match_candidate_to_job(
     reasons.append("✅ Hard Gates: Los Angeles County • CA Bar / JD Required • Active (<30d)")
 
     # -------------------------------------------------------------------------
-    # Dimension 1: Experience Level Calibration & Progressive Penalty (Max +25, Min -60)
+    # Dimension 1: Experience Level Calibration & Progressive Penalty
     # -------------------------------------------------------------------------
     exp_min = job.exp_min
 
@@ -51,19 +45,19 @@ def match_candidate_to_job(
             reasons.append("⏳ Reach Match: Requires 4 years experience (feasible reach for 2-yr associate)")
         elif exp_min == 5:
             score -= 15
-            reasons.append(f"⚠️ Experience Gap (-15 pts): Requires 5 years experience (exceeds 1–4 yr target)")
+            reasons.append("⚠️ Experience Gap: Requires 5 years experience (exceeds 1–4 yr target)")
         elif 6 <= exp_min <= 7:
             score -= 25
-            reasons.append(f"⚠️ Experience Gap (-25 pts): Requires {exp_min} years experience (exceeds 1–4 yr target)")
+            reasons.append(f"⚠️ Experience Gap: Requires {exp_min} years experience (exceeds 1–4 yr target)")
         elif 8 <= exp_min <= 10:
             score -= 35
-            reasons.append(f"🚫 Senior Level (-35 pts): Requires {exp_min}+ years experience (exceeds 1–4 yr target)")
+            reasons.append(f"🚫 Senior Level: Requires {exp_min}+ years experience (exceeds 1–4 yr target)")
         elif 11 <= exp_min <= 14:
             score -= 45
-            reasons.append(f"🚫 Executive Level (-45 pts): Requires {exp_min}+ years experience (exceeds 1–4 yr target)")
+            reasons.append(f"🚫 Executive Level: Requires {exp_min}+ years experience (exceeds 1–4 yr target)")
         elif exp_min >= 15:
             score -= 60
-            reasons.append(f"🚫 Over-Senior Executive (-60 pts): Requires {exp_min}+ years experience")
+            reasons.append(f"🚫 Over-Senior Executive: Requires {exp_min}+ years experience")
     else:
         # Infer from description or title keywords
         is_explicit_prime = bool(re.search(r"\b(1st-2nd\s+year|2nd\s+year|2nd-3rd\s+year|1-2\s*years?|1-3\s*years?|2\+?\s*years?|class\s+of\s+202[234])\b", combined_text))
@@ -79,16 +73,16 @@ def match_candidate_to_job(
             reasons.append("⏳ Reach Match: Targets 3–4 years experience (feasible reach for 2-yr associate)")
         elif is_5_7_text:
             score -= 20
-            reasons.append("⚠️ Experience Gap (-20 pts): Targets 5–7 years experience (exceeds 1–4 yr target)")
+            reasons.append("⚠️ Experience Gap: Targets 5–7 years experience (exceeds 1–4 yr target)")
         elif has_senior_word:
             score -= 20
-            reasons.append("⚠️ Senior role indicated by title (-20 pts)")
+            reasons.append("⚠️ Senior role indicated by title")
         else:
             score += 10
             reasons.append("📋 Associate / Counsel level (no rigid years requirement stated)")
 
     # -------------------------------------------------------------------------
-    # Dimension 2: Seniority Title Calibration (+10 to -25 pts)
+    # Dimension 2: Seniority Title Calibration
     # -------------------------------------------------------------------------
     is_senior_exec_title = bool(re.search(r"\b(director|senior director|vp|vice president|general counsel|chief legal officer|partner|managing director|head of legal)\b", title_lower))
     is_target_title = bool(re.search(r"\b(associate|junior counsel|counsel|legal engineer|contract attorney|legal specialist|associate attorney|corporate associate)\b", title_lower))
@@ -96,16 +90,16 @@ def match_candidate_to_job(
     if is_senior_exec_title:
         if exp_min and exp_min >= 8:
             score -= 25
-            reasons.append("⚠️ Executive Seniority (-25 pts): Title is Director / VP / General Counsel")
+            reasons.append("⚠️ Executive Seniority: Title is Director / VP / General Counsel")
         else:
             score -= 15
-            reasons.append("⚠️ Senior Title (-15 pts): Director / Head level")
+            reasons.append("⚠️ Senior Title: Director / Head level")
     elif is_target_title:
         score += 10
-        reasons.append("💼 Ideal Rank (+10 pts): Associate / Counsel / Legal Engineer title")
+        reasons.append("💼 Ideal Rank: Associate / Counsel / Legal Engineer title")
 
     # -------------------------------------------------------------------------
-    # Dimension 3: Practice Domain & Specialty Alignment (+20 to -25 pts)
+    # Dimension 3: Practice Domain & Specialty Alignment
     # -------------------------------------------------------------------------
     # 3A. Negative Domain Penalties (Mismatches for Harrison)
     is_real_estate = bool(re.search(r"\b(real\s+estate|land\s+use|zoning|property\s+acquisition|leasing\s+counsel|construction\s+law|tenant\s+disputes|property\s+management)\b", f"{title_lower} {combined_text}"))
@@ -115,16 +109,16 @@ def match_candidate_to_job(
 
     if is_real_estate:
         score -= 25
-        reasons.append("⚠️ Practice Mismatch (-25 pts): Commercial Real Estate & Land Use focus (Target: Media/Tech/Corporate)")
+        reasons.append("⚠️ Practice Mismatch: Commercial Real Estate & Land Use focus (Target: Media/Tech/Corporate)")
     elif is_tax_erisa:
         score -= 25
-        reasons.append("⚠️ Practice Mismatch (-25 pts): Tax / ERISA / Executive Comp focus")
+        reasons.append("⚠️ Practice Mismatch: Tax / ERISA / Executive Comp focus")
     elif is_patent_bar:
         score -= 30
-        reasons.append("⚠️ Practice Mismatch (-30 pts): Requires USPTO Patent Bar registration")
+        reasons.append("⚠️ Practice Mismatch: Requires USPTO Patent Bar registration")
     elif is_labor_union:
         score -= 20
-        reasons.append("⚠️ Practice Mismatch (-20 pts): Labor Relations / Union Bargaining focus")
+        reasons.append("⚠️ Practice Mismatch: Labor Relations / Union Bargaining focus")
 
     # 3B. Positive Practice Alignment
     has_ai_focus = bool(re.search(r"\b(legal\s+engineer|associate\s*[-–—]\s*ai|ai\s+associate|ai\s+counsel|ai\s+attorney|prompt|legaltech|legal\s+tech|legal\s+innovation)\b", f"{title_lower} {combined_text}"))
@@ -133,42 +127,68 @@ def match_candidate_to_job(
 
     if has_ai_focus:
         score += 20
-        reasons.append("🤖 Prime Match (+20 pts): Legal AI & Engineering (matches Harvey certification & prompt engineering)")
+        reasons.append("🤖 Prime Match: Legal AI & Engineering (matches Harvey certification & prompt engineering)")
     elif is_entertainment_role and not is_real_estate:
         score += 18
-        reasons.append("🎬 Prime Match (+18 pts): Entertainment & Media Legal (matches MGM/NBCU/AEG background)")
+        reasons.append("🎬 Prime Match: Entertainment & Media Legal (matches MGM/NBCU/AEG background)")
     elif is_corp_commercial:
         score += 15
-        reasons.append("🏢 Strong Match (+15 pts): Corporate Transactions, Commercial Contracts & Licensing")
+        reasons.append("🏢 Strong Match: Corporate Transactions, Commercial Contracts & Licensing")
     else:
         score += 10
-        reasons.append("⚖️ Corporate / Legal Practice match (+10 pts)")
+        reasons.append("⚖️ Corporate / Legal Practice match")
 
     # -------------------------------------------------------------------------
-    # Dimension 4: Candidate Superpowers & Employer Affinity (+4 to +10 pts)
+    # Dimension 4: Candidate Superpowers & Employer Affinity
     # -------------------------------------------------------------------------
     # 4A. LegalTech / GenAI Mention
     has_harvey_or_llm = any(k in combined_text for k in ["harvey", "generative ai", "genai", "prompt", "llm", "large language", "legal tech", "legal technology", "ai-native", "automation", "emerging technology"])
     if has_harvey_or_llm:
         score += 5
-        reasons.append("✨ Superpower (+5 pts): Role utilizes AI workflows, GenAI, or LegalTech")
+        reasons.append("✨ Superpower: Role utilizes AI workflows, GenAI, or LegalTech")
 
     # 4B. Entertainment Skills
     has_ent_skills = any(k in combined_text for k in ["licensing", "distribution", "merchandising", "chain of title", "copyright", "talent agreements", "sponsorship", "clearance"])
     if has_ent_skills and not is_real_estate:
         score += 4
-        reasons.append("🎭 Key Skills (+4 pts): Licensing, copyright, distribution, or talent agreements")
+        reasons.append("🎭 Key Skills: Licensing, copyright, distribution, or talent agreements")
 
     # 4C. Employer Affinity
     if any(k in comp_lower for k in ["mgm", "amazon mgm", "metro-goldwyn-mayer"]):
         score += 5
-        reasons.append("🏆 Direct Alumni Affinity (+5 pts): Former employer (MGM Studios / Amazon MGM)")
+        reasons.append("🏆 Direct Alumni Affinity: Former employer (MGM Studios / Amazon MGM)")
     elif any(k in comp_lower for k in ["sony", "prime video", "aeg", "nbcuniversal", "nbcu", "telemundo", "nbc", "fox", "riot", "krafton", "live nation", "paramount", "disney", "espn", "netflix", "warner", "legendary"]):
         score += 4
-        reasons.append(f"⭐ Studio Peer Affinity (+4 pts): {job.company}")
+        reasons.append(f"⭐ Studio Peer Affinity: {job.company}")
     elif any(k in comp_lower for k in ["dla piper", "greenberg traurig", "cooley", "goodwin", "thompson coburn", "simpson thacher"]):
         score += 4
-        reasons.append(f"🏛️ BigLaw Peer Match (+4 pts): {job.company}")
+        reasons.append(f"🏛️ BigLaw Peer Match: {job.company}")
+
+    # -------------------------------------------------------------------------
+    # Dimension 5: Compensation Alignment (Ideal: $170k+ / $80+/hr)
+    # -------------------------------------------------------------------------
+    effective_pay: Optional[float] = None
+    if job.salary_max or job.salary_min:
+        val = job.salary_max or job.salary_min
+        if job.salary_interval == "hourly":
+            effective_pay = val * 2080.0
+        else:
+            effective_pay = val
+
+    if effective_pay is not None:
+        if effective_pay >= 170000.0:
+            score += 10
+            reasons.append("💵 Target Compensation: Meets $170k+ ideal target")
+        elif 140000.0 <= effective_pay < 170000.0:
+            score -= 5
+            reasons.append("💵 Compensation: Slightly below $170k target")
+        elif 110000.0 <= effective_pay < 140000.0:
+            score -= 15
+            reasons.append("⚠️ Compensation: Below $170k target ($110k–$139k)")
+        elif effective_pay < 110000.0:
+            score -= 25
+            reasons.append("⚠️ Compensation: Significantly below $170k target")
+    # If no pay is displayed (effective_pay is None), 0 points added/subtracted (neutral).
 
     # Clamping
     final_score = max(0, min(100, score))
