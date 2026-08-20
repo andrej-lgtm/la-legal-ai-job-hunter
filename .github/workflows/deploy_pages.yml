@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
@@ -41,6 +41,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Scraper & Update Pipeline
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           python main.py --run-now
 
@@ -49,6 +50,7 @@ jobs:
           python src/notifiers/publish_pages.py
 
       - name: Commit updated database and docs
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
