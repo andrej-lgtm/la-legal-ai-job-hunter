@@ -163,13 +163,13 @@ def match_candidate_to_job(
     # 4D. Employer Affinity
     if any(k in comp_lower for k in ["mgm", "amazon mgm", "metro-goldwyn-mayer"]):
         score += 5
-        reasons.append(f"🏆 Alumni Affinity: Former employer ({job.company})")
+        reasons.append("🏆 Alumni Affinity")
     elif any(k in comp_lower for k in ["sony", "prime video", "aeg", "nbcuniversal", "nbcu", "telemundo", "nbc", "fox", "riot", "krafton", "live nation", "paramount", "disney", "espn", "netflix", "warner", "legendary"]):
         score += 4
-        reasons.append(f"⭐ Studio Peer: {job.company}")
+        reasons.append("⭐ Studio Peer")
     elif any(k in comp_lower for k in ["dla piper", "greenberg traurig", "cooley", "goodwin", "thompson coburn", "simpson thacher"]):
         score += 4
-        reasons.append(f"🏛️ BigLaw Peer: {job.company}")
+        reasons.append("🏛️ BigLaw Peer")
 
     # -------------------------------------------------------------------------
     # Dimension 5: Compensation Alignment (Calculated in score, pill suppressed per user request)
