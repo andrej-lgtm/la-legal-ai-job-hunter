@@ -13,6 +13,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from src.config import load_config
 from src.db.database import Database
+from src.engine.scorer import score_job
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,18 @@ def generate_published_site(output_dir: str = "docs") -> str:
     """Generate a standalone interactive web app into output_dir."""
     config = load_config(str(ROOT_DIR / "config.yaml"))
     db = Database(str(ROOT_DIR / config.database.path))
+
+    # Rescore all jobs in database to guarantee latest scoring formula
+    all_raw_jobs = db.get_jobs(limit=1000)
+    for job in all_raw_jobs:
+        score, reasons, is_qual = score_job(job, config)
+        with db._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE jobs SET match_score = ?, match_reasons = ?, category = ?, is_legal_ai = ?, jd_required = ?, jd_notes = ? WHERE id = ?",
+                (score, json.dumps(reasons), job.category, 1 if job.is_legal_ai else 0, 1 if job.jd_required else 0, job.jd_notes, job.id)
+            )
+            conn.commit()
 
     # Fetch all active jobs (score >= 20, non-hidden)
     jobs = db.get_jobs(min_score=20, limit=500)
