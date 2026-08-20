@@ -33,19 +33,18 @@ SENIOR_DISQUALIFIERS = [
 # Patterns to extract experience numbers (digits or words)
 EXP_RANGE_PATTERNS = [
     # 1-3 years, 1 to 3 years, 2-4 years, 3-5 years, 8-10 years, 10-15 years
-    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*(?:-|–|to)\s*(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen|twenty)\s*\+?\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law|\s+pqe|\s+post-bar)?",
-    # 10+ years, 7+ years, 5+ years, 2+ years, 1+ year
-    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*\+\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law|\s+pqe|\s+post-bar)?",
+    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*(?:-|–|—|to)\s*(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen|twenty)\s*\+?\s*years?",
+    # 10+ years, 7+ years, 6+ years, 5+ years, 2+ years, 6 plus years
+    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*(?:\+|plus)\s*years?",
     # minimum 10 years, at least four (4) years
-    r"(?:minimum\s+(?:of\s+)?|at\s+least\s+)(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)(?:\s*\(\s*\d+\s*\))?\s*years?(?:\s+of)?(?:\s+legal|\s+relevant|\s+in-house|\s+experience|\s+practice|\s+law)?",
-    # 10 years of experience, 3 years of legal practice
-    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*years?(?:\s+of)?(?:\s+legal|\s+in-house|\s+relevant|\s+experience|\s+practice|\s+law|\s+pqe)",
+    r"(?:minimum\s+(?:of\s+)?|at\s+least\s+)(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)(?:\s*\(\s*\d+\s*\))?\s*years?",
+    # 10 years of experience, 6 years of relevant California labor and employment experience
+    r"(\d+|one|two|three|four|five|six|seven|eight|ten|twelve|fifteen)\s*years?(?:\s+of)?(?:\s+[\w\s,-]{0,50})?\s*(?:experience|practice|law|pqe|post-bar)",
 ]
 
-# Junior indicators
-JUNIOR_INDICATORS = [
-    r"\b(entry[- ]level|junior|early[- ]career|new\s+grad|first[- ]year|1st\s+year|2nd\s+year|3rd\s+year|junior\s+associate)\b",
-    r"\b(associate\s+counsel|junior\s+counsel|assistant\s+counsel|associate\s+corporate\s+counsel|associate\s+commercial\s+counsel|associate\s+attorney)\b",
+# Junior title indicators
+JUNIOR_TITLE_INDICATORS = [
+    r"\b(entry[- ]level|junior\s+counsel|junior\s+associate|junior\s+attorney|associate\s+counsel|assistant\s+counsel|associate\s+corporate\s+counsel|associate\s+commercial\s+counsel|associate\s+attorney|1st\s+year\s+associate|2nd\s+year\s+associate)\b"
 ]
 
 
@@ -66,7 +65,9 @@ def extract_experience(
         (min_years, max_years, raw_match_str, is_target_match, is_ideal_1_to_3, reason)
     """
     title_lower = title.lower()
-    combined = f"{title}\n{text}".lower()
+    # Unescape markdown backslashes (e.g. 6\+ years -> 6+ years)
+    clean_text = text.replace(r"\+", "+").replace(r"\-", "-").replace(r"\(", "(").replace(r"\)", ")").replace("\\", "")
+    combined = f"{title}\n{clean_text}".lower()
 
     has_junior_title = bool(
         re.search(r"\b(associate\s+counsel|associate\s+corporate|associate\s+commercial|associate\s+attorney|junior|assistant\s+counsel|associate\s+director)\b", title_lower)
@@ -143,10 +144,10 @@ def extract_experience(
     if any(re.search(pat, title_lower, re.IGNORECASE) for pat in SENIOR_DISQUALIFIERS) and not has_junior_title:
         return None, None, "Senior Title", False, False, f"Senior role detected in title: '{title}'"
 
-    # 3. Check for junior phrasing if no numbers found
-    has_junior_phrase = any(re.search(pat, combined, re.IGNORECASE) for pat in JUNIOR_INDICATORS)
-    if has_junior_phrase or has_junior_title:
-        return 1, 3, "Junior / Associate indicator", True, True, "Title/description indicates early-career legal role (1-3 yrs)"
+    # 3. Check for explicit junior title if no numbers found
+    has_explicit_junior = any(re.search(pat, title_lower, re.IGNORECASE) for pat in JUNIOR_TITLE_INDICATORS)
+    if has_explicit_junior or has_junior_title:
+        return 1, 3, "Junior / Associate indicator", True, True, "Title indicates early-career legal role (1-3 yrs)"
 
     # Default fallback: experience unstated (neutral match, not explicit)
     return None, None, "Not explicitly stated", True, False, "Experience level not explicitly stated (associate level)"
