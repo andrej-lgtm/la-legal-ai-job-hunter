@@ -1,31 +1,44 @@
 search:
   queries:
+    - "Legal Counsel"
+    - "Associate Counsel"
+    - "Corporate Counsel"
+    - "Commercial Counsel"
+    - "Media Counsel"
+    - "Technology Counsel"
+    - "Entertainment Counsel"
+    - "Digital Media Counsel"
+    - "IP Counsel"
+    - "Intellectual Property Counsel"
+    - "Transactional Counsel"
+    - "Transactional Associate"
+    - "Junior Counsel"
+    - "Junior Attorney"
+    - "Corporate Associate"
+    - "Corporate Attorney"
+    - "M&A Associate"
+    - "Business & Legal Affairs"
+    - "Legal & Business Affairs"
+    - "Business Affairs"
+    - "Technology Associate"
     - "Legal Engineer"
     - "Legal AI"
     - "AI Associate"
     - "Associate - AI"
     - "AI Counsel"
     - "AI Attorney"
-    - "Associate Counsel"
     - "In House Counsel"
-    - "Corporate Counsel"
-    - "Commercial Counsel"
-    - "Corporate Associate"
-    - "Corporate Attorney"
-    - "M&A Associate"
-    - "Business & Legal Affairs"
-    - "Business Affairs"
-    - "Technology Associate"
   locations:
     - "Los Angeles, CA"
   distance_miles: 35
-  results_per_query: 40
+  results_per_query: 50
   hours_old: 720  # 30-day active window
 
 filters:
   require_jd: true
   min_experience_years: 1
   max_experience_years: 4
+  min_match_score: 20
   exclude_keywords:
     - "Senior Counsel"
     - "Sr. Counsel"
@@ -43,21 +56,18 @@ filters:
     - "Trial Attorney"
 
 notifications:
-  discord:
-    enabled: false
-    webhook_url: ""
-  slack:
-    enabled: false
-    webhook_url: ""
   email:
     enabled: false
     smtp_host: "smtp.gmail.com"
     smtp_port: 587
-    user: ""
-    password: ""
-    recipient: ""
+    smtp_user: "your-email@gmail.com"
+    smtp_pass: "your-app-password"
+    to_email: "your-email@gmail.com"
+  webhook:
+    enabled: false
+    url: ""
+    type: "discord"
   digest:
-    enabled: true
     output_dir: "data/digests"
 
 database:
