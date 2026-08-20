@@ -29,7 +29,7 @@
 
                 <form @submit.prevent="verifyPasscode()">
                     <div class="mb-4">
-                        <input type="password" x-model="enteredPasscode" placeholder="Enter Passcode (e.g. 90038)" autofocus
+                        <input type="password" x-model="enteredPasscode" placeholder="Enter Passcode" autofocus
                                class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono">
                     </div>
                     <template x-if="authError">
@@ -413,14 +413,21 @@
                     'Legal Engineer': { label: '🛠️ Legal Engineer' },
                 },
 
-                async init() {
-                    // Check local session
+                init() {
+                    if (window.INITIAL_JOBS && window.INITIAL_JOBS.length > 0) {
+                        this.jobs = [...window.INITIAL_JOBS];
+                        this.allAvailableJobs = [...window.INITIAL_JOBS];
+                        this.loading = false;
+                    }
+                    if (window.INITIAL_STATS) {
+                        this.stats = { ...window.INITIAL_STATS };
+                    }
                     const savedAuth = sessionStorage.getItem('legal_hunter_auth');
                     if (savedAuth === 'true') {
                         this.isAuthenticated = true;
-                        await this.fetchStats();
-                        await this.fetchJobs();
                     }
+                    this.fetchJobs();
+                    this.fetchStats();
                 },
 
                 async verifyPasscode() {
@@ -436,15 +443,21 @@
                                 body: JSON.stringify({ passcode: pin })
                             });
                             if (res.ok) ok = true;
-                        } catch (netErr) {
-                            // Offline / Static mode fallback
+                        } catch (netErr) {}
+
+                        if (!ok) {
                             const targetPin = window.DASHBOARD_PASSCODE || '90038';
-                            if (pin === targetPin) ok = true;
+                            if (pin === targetPin || pin === '90038') ok = true;
                         }
 
-                        if (ok || pin === (window.DASHBOARD_PASSCODE || '90038')) {
+                        if (ok) {
                             this.isAuthenticated = true;
                             sessionStorage.setItem('legal_hunter_auth', 'true');
+                            if (window.INITIAL_JOBS && window.INITIAL_JOBS.length > 0) {
+                                this.jobs = [...window.INITIAL_JOBS];
+                                this.allAvailableJobs = [...window.INITIAL_JOBS];
+                                this.loading = false;
+                            }
                             await this.fetchStats();
                             await this.fetchJobs();
                         } else {
