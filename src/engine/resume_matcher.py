@@ -38,7 +38,7 @@ def match_candidate_to_job(
     if exp_min is not None:
         if 1 <= exp_min <= 3:
             score += 25
-            reasons.append("🎯 Prime Timing: Requires 1–3 years experience")
+            reasons.append("🎯 Prime Experience: Requires 1–3 years experience")
         elif exp_min == 4:
             score -= 5
             reasons.append("⚠️ Experience Gap: Requires 4 years experience")
@@ -66,7 +66,7 @@ def match_candidate_to_job(
 
         if is_explicit_prime:
             score += 25
-            reasons.append("🎯 Prime Timing")
+            reasons.append("🎯 Prime Experience")
         elif is_reach_4:
             score -= 5
             reasons.append("⚠️ Experience Gap: Requires 3–4 years experience")
@@ -92,7 +92,7 @@ def match_candidate_to_job(
             reasons.append("⚠️ Senior Title")
     elif is_target_title:
         score += 10
-        reasons.append("💼 Ideal Rank")
+        reasons.append("💼 Ideal Position")
 
     # -------------------------------------------------------------------------
     # Dimension 3: Practice Domain & Specialty Alignment
