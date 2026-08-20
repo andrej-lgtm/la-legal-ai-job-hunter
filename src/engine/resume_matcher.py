@@ -40,8 +40,8 @@ def match_candidate_to_job(
             score += 25
             reasons.append("🎯 Prime Timing: Requires 1–3 years experience")
         elif exp_min == 4:
-            score += 10
-            reasons.append("⏳ Reach Match: Requires 4 years experience")
+            score -= 5
+            reasons.append("⚠️ Experience Gap: Requires 4 years experience")
         elif exp_min == 5:
             score -= 15
             reasons.append("⚠️ Experience Gap: Requires 5 years experience")
@@ -68,8 +68,8 @@ def match_candidate_to_job(
             score += 25
             reasons.append("🎯 Prime Timing")
         elif is_reach_4:
-            score += 10
-            reasons.append("⏳ Reach Match: Requires 3–4 years experience")
+            score -= 5
+            reasons.append("⚠️ Experience Gap: Requires 3–4 years experience")
         elif is_5_7_text:
             score -= 20
             reasons.append("⚠️ Experience Gap: Requires 5–7 years experience")
