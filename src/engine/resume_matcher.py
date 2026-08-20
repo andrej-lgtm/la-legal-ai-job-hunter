@@ -1,4 +1,4 @@
-"""Personalized Resume Matcher with continuous progressive experience, practice area calibration, pay alignment, and litigation support."""
+"""Personalized Resume Matcher with continuous progressive experience, practice area calibration, pay alignment, and clean pills."""
 
 import re
 from typing import List, Optional, Tuple
@@ -27,9 +27,8 @@ def match_candidate_to_job(
     title_lower = job.title.lower()
     comp_lower = job.company.lower()
 
-    # 1. Base Score for passing all eligibility gates
+    # 1. Base Score for passing all eligibility gates (hard gates pill removed per user request)
     score = 40
-    reasons.append("✅ Hard Gates: Los Angeles County • CA Bar / JD Required • Active (<30d)")
 
     # -------------------------------------------------------------------------
     # Dimension 1: Experience Level Calibration & Progressive Penalty
@@ -39,22 +38,22 @@ def match_candidate_to_job(
     if exp_min is not None:
         if 1 <= exp_min <= 3:
             score += 25
-            reasons.append("🎯 Prime Timing: Requires 1–3 years experience (Class of 2023 target)")
+            reasons.append("🎯 Prime Timing: Requires 1–3 years experience")
         elif exp_min == 4:
             score += 10
-            reasons.append("⏳ Reach Match: Requires 4 years experience (feasible reach for 2-yr associate)")
+            reasons.append("⏳ Reach Match: Requires 4 years experience")
         elif exp_min == 5:
             score -= 15
-            reasons.append("⚠️ Experience Gap: Requires 5 years experience (exceeds 1–4 yr target)")
+            reasons.append("⚠️ Experience Gap: Requires 5 years experience")
         elif 6 <= exp_min <= 7:
             score -= 25
-            reasons.append(f"⚠️ Experience Gap: Requires {exp_min} years experience (exceeds 1–4 yr target)")
+            reasons.append(f"⚠️ Experience Gap: Requires {exp_min} years experience")
         elif 8 <= exp_min <= 10:
             score -= 35
-            reasons.append(f"🚫 Senior Level: Requires {exp_min}+ years experience (exceeds 1–4 yr target)")
+            reasons.append(f"🚫 Senior Level: Requires {exp_min}+ years experience")
         elif 11 <= exp_min <= 14:
             score -= 45
-            reasons.append(f"🚫 Executive Level: Requires {exp_min}+ years experience (exceeds 1–4 yr target)")
+            reasons.append(f"🚫 Executive Level: Requires {exp_min}+ years experience")
         elif exp_min >= 15:
             score -= 60
             reasons.append(f"🚫 Over-Senior Executive: Requires {exp_min}+ years experience")
@@ -67,19 +66,16 @@ def match_candidate_to_job(
 
         if is_explicit_prime:
             score += 25
-            reasons.append("🎯 Prime Timing: Targets 1st–3rd year associate / Class of 2023")
+            reasons.append("🎯 Prime Timing")
         elif is_reach_4:
             score += 10
-            reasons.append("⏳ Reach Match: Targets 3–4 years experience (feasible reach for 2-yr associate)")
+            reasons.append("⏳ Reach Match: Requires 3–4 years experience")
         elif is_5_7_text:
             score -= 20
-            reasons.append("⚠️ Experience Gap: Targets 5–7 years experience (exceeds 1–4 yr target)")
+            reasons.append("⚠️ Experience Gap: Requires 5–7 years experience")
         elif has_senior_word:
             score -= 20
             reasons.append("⚠️ Senior role indicated by title")
-        else:
-            score += 10
-            reasons.append("📋 Associate / Counsel level (no rigid years requirement stated)")
 
     # -------------------------------------------------------------------------
     # Dimension 2: Seniority Title Calibration
@@ -90,13 +86,13 @@ def match_candidate_to_job(
     if is_senior_exec_title:
         if exp_min and exp_min >= 8:
             score -= 25
-            reasons.append("⚠️ Executive Seniority: Title is Director / VP / General Counsel")
+            reasons.append("⚠️ Executive Seniority")
         else:
             score -= 15
-            reasons.append("⚠️ Senior Title: Director / Head level")
+            reasons.append("⚠️ Senior Title")
     elif is_target_title:
         score += 10
-        reasons.append("💼 Ideal Rank: Associate / Counsel / Legal Engineer title")
+        reasons.append("💼 Ideal Rank")
 
     # -------------------------------------------------------------------------
     # Dimension 3: Practice Domain & Specialty Alignment
@@ -110,19 +106,19 @@ def match_candidate_to_job(
 
     if is_real_estate:
         score -= 25
-        reasons.append("⚠️ Practice Mismatch: Commercial Real Estate & Land Use focus (Target: Media/Tech/Corporate)")
+        reasons.append("⚠️ Practice Mismatch: Commercial Real Estate & Land Use")
     elif is_tax_erisa:
         score -= 25
-        reasons.append("⚠️ Practice Mismatch: Tax / ERISA / Executive Comp focus")
+        reasons.append("⚠️ Practice Mismatch: Tax & ERISA")
     elif is_patent_bar:
         score -= 30
-        reasons.append("⚠️ Practice Mismatch: Requires USPTO Patent Bar registration")
+        reasons.append("⚠️ Practice Mismatch: Requires Patent Bar")
     elif is_labor_union:
         score -= 20
-        reasons.append("⚠️ Practice Mismatch: Labor Relations / Union Bargaining focus")
+        reasons.append("⚠️ Practice Mismatch: Labor Relations")
     elif is_litigation:
         score -= 25
-        reasons.append("⚖️ Litigation Practice: Secondary focus (Primary: In-House, Tech/AI, Corporate)")
+        reasons.append("⚖️ Litigation Practice: Secondary focus")
 
     # 3B. Positive Practice Alignment
     has_ai_focus = bool(re.search(r"\b(legal\s+engineer|associate\s*[-–—]\s*ai|ai\s+associate|ai\s+counsel|ai\s+attorney|prompt|legaltech|legal\s+tech|legal\s+innovation)\b", f"{title_lower} {combined_text}"))
@@ -131,13 +127,13 @@ def match_candidate_to_job(
 
     if has_ai_focus:
         score += 20
-        reasons.append("🤖 Prime Match: Legal AI & Engineering (matches Harvey certification & prompt engineering)")
+        reasons.append("🤖 Prime Match: Legal AI & Engineering")
     elif is_entertainment_role and not is_real_estate:
         score += 18
-        reasons.append("🎬 Prime Match: Entertainment & Media Legal (matches MGM/NBCU/AEG background)")
+        reasons.append("🎬 Prime Match: Entertainment & Media Legal")
     elif is_corp_commercial:
         score += 15
-        reasons.append("🏢 Strong Match: Corporate Transactions, Commercial Contracts & Licensing")
+        reasons.append("🏢 Strong Match: Corporate Transactions & Licensing")
     elif not is_litigation:
         score += 10
         reasons.append("⚖️ Corporate / Legal Practice match")
@@ -149,34 +145,34 @@ def match_candidate_to_job(
     has_harvey_or_llm = any(k in combined_text for k in ["harvey", "generative ai", "genai", "prompt", "llm", "large language", "legal tech", "legal technology", "ai-native", "automation", "emerging technology"])
     if has_harvey_or_llm:
         score += 5
-        reasons.append("✨ Superpower: Role utilizes AI workflows, GenAI, or LegalTech")
+        reasons.append("✨ Superpower: Role utilizes AI & LegalTech")
 
     # 4B. Entertainment Skills
     has_ent_skills = any(k in combined_text for k in ["licensing", "distribution", "merchandising", "chain of title", "copyright", "talent agreements", "sponsorship", "clearance"])
     if has_ent_skills and not is_real_estate:
         score += 4
-        reasons.append("🎭 Key Skills: Licensing, copyright, distribution, or talent agreements")
+        reasons.append("🎭 Key Skills: Licensing, copyright & distribution")
 
     # 4C. Litigation Skills (When applicable)
     if is_litigation:
         has_lit_skills = any(k in combined_text for k in ["discovery", "motions", "motion practice", "depositions", "briefs", "courtroom", "trial prep"])
         if has_lit_skills:
             score += 5
-            reasons.append("📑 Case Skills: Discovery, motions, and deposition experience")
+            reasons.append("📑 Case Skills: Discovery, motions & depositions")
 
     # 4D. Employer Affinity
     if any(k in comp_lower for k in ["mgm", "amazon mgm", "metro-goldwyn-mayer"]):
         score += 5
-        reasons.append("🏆 Direct Alumni Affinity: Former employer (MGM Studios / Amazon MGM)")
+        reasons.append(f"🏆 Alumni Affinity: Former employer ({job.company})")
     elif any(k in comp_lower for k in ["sony", "prime video", "aeg", "nbcuniversal", "nbcu", "telemundo", "nbc", "fox", "riot", "krafton", "live nation", "paramount", "disney", "espn", "netflix", "warner", "legendary"]):
         score += 4
-        reasons.append(f"⭐ Studio Peer Affinity: {job.company}")
+        reasons.append(f"⭐ Studio Peer: {job.company}")
     elif any(k in comp_lower for k in ["dla piper", "greenberg traurig", "cooley", "goodwin", "thompson coburn", "simpson thacher"]):
         score += 4
-        reasons.append(f"🏛️ BigLaw Peer Match: {job.company}")
+        reasons.append(f"🏛️ BigLaw Peer: {job.company}")
 
     # -------------------------------------------------------------------------
-    # Dimension 5: Compensation Alignment (Ideal: $170k+ / $80+/hr)
+    # Dimension 5: Compensation Alignment (Calculated in score, pill suppressed per user request)
     # -------------------------------------------------------------------------
     effective_pay: Optional[float] = None
     if job.salary_max or job.salary_min:
@@ -189,17 +185,12 @@ def match_candidate_to_job(
     if effective_pay is not None:
         if effective_pay >= 170000.0:
             score += 10
-            reasons.append("💵 Target Compensation: Meets $170k+ ideal target")
         elif 140000.0 <= effective_pay < 170000.0:
             score -= 5
-            reasons.append("💵 Compensation: Slightly below $170k target")
         elif 110000.0 <= effective_pay < 140000.0:
             score -= 15
-            reasons.append("⚠️ Compensation: Below $170k target ($110k–$139k)")
         elif effective_pay < 110000.0:
             score -= 25
-            reasons.append("⚠️ Compensation: Significantly below $170k target")
-    # If no pay is displayed (effective_pay is None), 0 points added/subtracted (neutral).
 
     # Clamping
     final_score = max(0, min(100, score))

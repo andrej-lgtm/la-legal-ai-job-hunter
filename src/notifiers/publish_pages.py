@@ -5,6 +5,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Ensure root directory is on path
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -40,8 +41,16 @@ def generate_published_site(output_dir: str = "docs") -> str:
     jobs_data = [j.model_dump() for j in jobs]
     stats = db.get_stats()
 
-    # Format timestamp
-    now_str = datetime.now().strftime("Today at %I:%M %p PST")
+    # Format timestamp explicitly in Pacific Time (America/Los_Angeles)
+    try:
+        pacific_tz = ZoneInfo("America/Los_Angeles")
+        now_pst = datetime.now(pacific_tz)
+    except Exception:
+        now_pst = datetime.now()
+
+    # Format as e.g. "Today at 9:48 PM PST"
+    hour_12 = now_pst.strftime("%I").lstrip("0") or "12"
+    now_str = f"Today at {hour_12}:{now_pst.strftime('%M %p')} PST"
     stats["last_scraped_at"] = now_str
     db.set_metadata("last_scraped_at", now_str)
 
