@@ -93,7 +93,7 @@ def extract_experience(
             primary = valid_ranges[0]
             exp_min, exp_max, raw_str = primary
 
-            # Disqualification / High requirement check for 5+ years
+            # Requirement check for 5+ years
             if exp_min >= 5:
                 return (
                     exp_min,
@@ -101,7 +101,7 @@ def extract_experience(
                     raw_str,
                     False,
                     False,
-                    f"Requires {exp_min}+ years experience (exceeds 1-4 years target)",
+                    f"Requires {exp_min}+ years experience",
                 )
 
             # Ideal Match: 1-3 years (Harrison's exact sweet spot)
@@ -131,7 +131,7 @@ def extract_experience(
                     raw_str,
                     False,
                     False,
-                    f"Experience requirement {raw_str.strip()} is outside 1-4 years",
+                    f"Requires {raw_str.strip()}",
                 )
 
     # 2. Check for senior disqualifiers in title if no numbers found

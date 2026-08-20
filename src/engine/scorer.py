@@ -174,9 +174,9 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
 
     # Experience Badge Pill
     if exp_min and exp_min >= 5:
-        reasons.append(f"⚠️ Requires {exp_min}+ years experience (exceeds 1-4 years target)")
+        reasons.append(f"⚠️ Requires {exp_min}+ years experience")
     elif "Senior role detected in title" in exp_reason:
-        reasons.append(f"⚠️ {exp_reason} (exceeds 1-4 years target)")
+        reasons.append(f"⚠️ {exp_reason}")
     elif is_exp_match:
         reasons.append(f"🎯 {exp_reason}")
     else:
