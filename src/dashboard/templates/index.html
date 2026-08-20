@@ -17,277 +17,320 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased" x-data="jobApp()">
     
-    <!-- Top Navigation Bar -->
-    <nav class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <span class="text-2xl">⚖️</span>
-                <div>
-                    <span class="font-bold text-white tracking-tight text-lg">LA Legal & AI Job Hunter</span>
-                    <span class="text-xs ml-2 px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-semibold">Resume-Tailored Engine</span>
+    <!-- Passcode Login Gate Modal (Shown if not authenticated) -->
+    <template x-if="!isAuthenticated">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-md px-4">
+            <div class="bg-slate-900 border border-indigo-900/60 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
+                <div class="w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner">
+                    ⚖️
                 </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <button @click="triggerScrape()" :disabled="isScraping" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-lg transition">
-                    <span x-show="!isScraping">🔄 Run Scraper</span>
-                    <span x-show="isScraping">⏳ Scraping Live Feeds...</span>
-                </button>
-            </div>
-        </div>
-    </nav>
+                <h2 class="text-xl font-bold text-white tracking-tight">LA Legal & AI Job Hunter</h2>
+                <p class="text-xs text-slate-400 mt-1 mb-6">Enter passcode to unlock candidate dashboard</p>
 
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-
-        <!-- Candidate Profile Hero Card -->
-        <div class="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-900/50 rounded-2xl p-5 mb-8 shadow-xl">
-            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-2xl font-black text-indigo-300 shadow-inner">
-                        HW
+                <form @submit.prevent="verifyPasscode()">
+                    <div class="mb-4">
+                        <input type="password" x-model="enteredPasscode" placeholder="Enter Passcode (e.g. 90038)" autofocus
+                               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono">
                     </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h1 class="text-xl font-black text-white tracking-tight">Harrison Wheeler</h1>
-                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-700">CA Bar Admitted (2023)</span>
-                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-950 text-purple-300 border border-purple-700">Harvey Legal Engineer Certified</span>
-                        </div>
-                        <p class="text-xs text-slate-300 mt-1 font-medium">
-                            <span class="text-indigo-300 font-semibold">Focus:</span> AI & Emerging Tech • Entertainment & In-House Legal • Corporate Transactions | <span class="text-slate-400">LMU Loyola Law School JD ('23) • USC ('18) • Los Angeles, CA (90038)</span>
-                        </p>
-                    </div>
-                </div>
-                <div class="flex flex-wrap gap-2 text-xs">
-                    <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">🏢 MGM / NBCU / AEG Alumni</span>
-                    <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">🤖 Prompt & Workflow Engineering</span>
-                    <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">📜 Contract Drafting & Licensing</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stats Summary -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
-                <div class="text-xs uppercase font-semibold text-slate-400">Total Tracked</div>
-                <div class="text-2xl font-black text-white mt-1" x-text="stats.total_jobs || 0">0</div>
-            </div>
-            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
-                <div class="text-xs uppercase font-semibold text-slate-400">Resume Verified Matches</div>
-                <div class="text-2xl font-black text-indigo-400 mt-1" x-text="stats.qualified_jobs || 0">0</div>
-            </div>
-            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
-                <div class="text-xs uppercase font-semibold text-slate-400">Saved Roles</div>
-                <div class="text-2xl font-black text-amber-400 mt-1" x-text="stats.saved_jobs || 0">0</div>
-            </div>
-            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
-                <div class="text-xs uppercase font-semibold text-slate-400">Applied</div>
-                <div class="text-2xl font-black text-emerald-400 mt-1" x-text="stats.applied_jobs || 0">0</div>
-            </div>
-        </div>
-
-        <!-- Filter & Sorting Controls Bar -->
-        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 mb-6 space-y-4 shadow-sm">
-            <!-- Row 1: Search, Status, and Category Filter Buttons -->
-            <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
-                <!-- Search Input -->
-                <div class="w-full md:w-80">
-                    <input type="text" x-model="searchQuery" @input="fetchJobs()" placeholder="Search title, company, or skill..." 
-                           class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
-                </div>
-
-                <!-- Dynamic Category Filter Pills (Only visible when count > 0) -->
-                <div class="flex flex-wrap gap-2 w-full md:w-auto">
-                    <button @click="setCategory('')" :class="selectedCategory === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5">
-                        <span>All</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-indigo-300 font-bold" x-text="allAvailableJobs.length"></span>
-                    </button>
-
-                    <template x-for="cat in activeCategories" :key="cat.key">
-                        <button @click="setCategory(cat.key)" :class="selectedCategory === cat.key ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5">
-                            <span x-text="cat.label"></span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-indigo-300 font-bold" x-text="cat.count"></span>
-                        </button>
+                    <template x-if="authError">
+                        <p class="text-xs text-rose-400 font-semibold mb-3" x-text="authError"></p>
                     </template>
-                </div>
-
-                <!-- Status Tabs -->
-                <div class="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-                    <button @click="setStatus('')" :class="selectedStatus === '' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3.5 py-1 text-xs font-semibold rounded transition">Active</button>
-                    <button @click="setStatus('saved')" :class="selectedStatus === 'saved' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3.5 py-1 text-xs font-semibold rounded transition">Saved</button>
-                    <button @click="setStatus('applied')" :class="selectedStatus === 'applied' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3.5 py-1 text-xs font-semibold rounded transition">Applied</button>
-                </div>
-            </div>
-
-            <!-- Row 2: Sort By Controls (MATCH, PAY, Date, Distance) -->
-            <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="font-bold text-slate-400 uppercase tracking-wider text-[11px] flex items-center gap-1">
-                        <span>⚡ Sort By:</span>
-                    </span>
-
-                    <!-- Sort Pill: MATCH -->
-                    <button @click="setSort('match')" 
-                            :class="sortBy === 'match' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
-                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
-                        <span>🎯 Match Score</span>
-                        <span x-show="sortBy === 'match'">▼</span>
+                    <button type="submit" :disabled="isVerifying" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition shadow-lg">
+                        <span x-show="!isVerifying">Unlock Dashboard &rarr;</span>
+                        <span x-show="isVerifying">Verifying...</span>
                     </button>
-
-                    <!-- Sort Pill: PAY -->
-                    <button @click="setSort('pay')" 
-                            :class="sortBy === 'pay' ? 'bg-emerald-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
-                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
-                        <span>💵 Pay / Salary</span>
-                        <span x-show="sortBy === 'pay'">▼</span>
-                    </button>
-
-                    <!-- Sort Pill: Date -->
-                    <button @click="setSort('date')" 
-                            :class="sortBy === 'date' ? 'bg-amber-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
-                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
-                        <span>🕒 Posting Date (Newest)</span>
-                        <span x-show="sortBy === 'date'">▼</span>
-                    </button>
-
-                    <!-- Sort Pill: Distance from 90038 (Hollywood) -->
-                    <button @click="setSort('distance')" 
-                            :class="sortBy === 'distance' ? 'bg-purple-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
-                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
-                        <span>📍 Distance (Closest)</span>
-                        <span x-show="sortBy === 'distance'">▲</span>
-                    </button>
-                </div>
-
-                <div class="text-slate-400 text-xs font-semibold">
-                    <span>📍 Centered at 90038 (Hollywood, Los Angeles)</span>
-                </div>
+                </form>
             </div>
         </div>
+    </template>
 
-        <!-- Job Cards List -->
-        <div class="space-y-4">
-            <template x-if="loading">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center text-slate-400">
-                    Evaluating live matches against Harrison Wheeler's resume...
+    <!-- Main Dashboard (Visible when authenticated) -->
+    <div x-show="isAuthenticated">
+        <!-- Top Navigation Bar -->
+        <nav class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚖️</span>
+                    <div>
+                        <span class="font-bold text-white tracking-tight text-lg">LA Legal & AI Job Hunter</span>
+                        <span class="text-xs ml-2 px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-semibold">Resume-Tailored Engine</span>
+                    </div>
                 </div>
-            </template>
-
-            <template x-if="!loading && sortedJobs.length === 0">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
-                    <p class="text-slate-400 text-base">No job matches found for current filters.</p>
-                    <button @click="triggerScrape()" class="mt-4 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg">Run Scraper Now</button>
+                <div class="flex items-center gap-3">
+                    <button @click="triggerScrape()" :disabled="isScraping" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-lg transition">
+                        <span x-show="!isScraping">🔄 Run Scraper</span>
+                        <span x-show="isScraping">⏳ Scraping Live Feeds...</span>
+                    </button>
+                    <button @click="lockDashboard()" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-xs transition" title="Lock Dashboard">
+                        🔒 Lock
+                    </button>
                 </div>
-            </template>
+            </div>
+        </nav>
 
-            <template x-for="job in sortedJobs" :key="job.id">
-                <div class="bg-slate-900/90 border border-slate-800 hover:border-indigo-800/60 transition rounded-xl p-6 shadow-xl">
-                    <div class="flex flex-col md:flex-row gap-5 justify-between items-start">
-                        <div class="flex-1 w-full">
-                            <!-- Category, Location, Distance, Salary, and Age Badges -->
-                            <div class="flex flex-wrap items-center gap-2 mb-2.5">
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800" x-text="getCategoryLabel(job.category)"></span>
-                                
-                                <template x-if="job.is_legal_ai && job.category !== 'Legal AI'">
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-950 text-purple-300 border border-purple-800">✨ AI Practice</span>
-                                </template>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-                                <!-- Location & Proximity Distance Badge from 90038 -->
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium text-slate-300 bg-slate-950 border border-slate-800 inline-flex items-center gap-1">
-                                    <span>📍</span>
-                                    <span x-text="job.location"></span>
-                                    <template x-if="calculateDistance(job.location) !== null">
-                                        <span class="text-purple-300 font-bold ml-1" x-text="'(' + calculateDistance(job.location) + ' mi)'"></span>
+            <!-- Candidate Profile Hero Card -->
+            <div class="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-900/50 rounded-2xl p-5 mb-8 shadow-xl">
+                <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-2xl font-black text-indigo-300 shadow-inner">
+                            HW
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h1 class="text-xl font-black text-white tracking-tight">Harrison Wheeler</h1>
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-700">CA Bar Admitted (2023)</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-950 text-purple-300 border border-purple-700">Harvey Legal Engineer Certified</span>
+                            </div>
+                            <p class="text-xs text-slate-300 mt-1 font-medium">
+                                <span class="text-indigo-300 font-semibold">Focus:</span> AI & Emerging Tech • Entertainment & In-House Legal • Corporate Transactions | <span class="text-slate-400">LMU Loyola Law School JD ('23) • USC ('18) • Los Angeles, CA (90038)</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 text-xs">
+                        <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">🏢 MGM / NBCU / AEG Alumni</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">🤖 Prompt & Workflow Engineering</span>
+                        <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">📜 Contract Drafting & Licensing</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs uppercase font-semibold text-slate-400">Total Tracked</div>
+                    <div class="text-2xl font-black text-white mt-1" x-text="stats.total_jobs || 0">0</div>
+                </div>
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs uppercase font-semibold text-slate-400">Resume Verified Matches</div>
+                    <div class="text-2xl font-black text-indigo-400 mt-1" x-text="stats.qualified_jobs || 0">0</div>
+                </div>
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs uppercase font-semibold text-slate-400">Saved Roles</div>
+                    <div class="text-2xl font-black text-amber-400 mt-1" x-text="stats.saved_jobs || 0">0</div>
+                </div>
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                    <div class="text-xs uppercase font-semibold text-slate-400">Applied</div>
+                    <div class="text-2xl font-black text-emerald-400 mt-1" x-text="stats.applied_jobs || 0">0</div>
+                </div>
+            </div>
+
+            <!-- Filter & Sorting Controls Bar -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 mb-6 space-y-4 shadow-sm">
+                <!-- Row 1: Search, Status, and Category Filter Buttons -->
+                <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+                    <!-- Search Input -->
+                    <div class="w-full md:w-80">
+                        <input type="text" x-model="searchQuery" @input="fetchJobs()" placeholder="Search title, company, or skill..." 
+                               class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <!-- Dynamic Category Filter Pills (Only visible when count > 0) -->
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                        <button @click="setCategory('')" :class="selectedCategory === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5">
+                            <span>All</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-indigo-300 font-bold" x-text="allAvailableJobs.length"></span>
+                        </button>
+
+                        <template x-for="cat in activeCategories" :key="cat.key">
+                            <button @click="setCategory(cat.key)" :class="selectedCategory === cat.key ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5">
+                                <span x-text="cat.label"></span>
+                                <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-indigo-300 font-bold" x-text="cat.count"></span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Status Tabs (Includes Hidden/Archived) -->
+                    <div class="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                        <button @click="setStatus('')" :class="selectedStatus === '' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3 py-1 text-xs font-semibold rounded transition">Active</button>
+                        <button @click="setStatus('saved')" :class="selectedStatus === 'saved' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3 py-1 text-xs font-semibold rounded transition">Saved</button>
+                        <button @click="setStatus('applied')" :class="selectedStatus === 'applied' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3 py-1 text-xs font-semibold rounded transition">Applied</button>
+                        <button @click="setStatus('hidden')" :class="selectedStatus === 'hidden' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3 py-1 text-xs font-semibold rounded transition" title="View Hidden Jobs">
+                            <span>Hidden</span>
+                            <template x-if="stats.hidden_jobs">
+                                <span class="ml-1 px-1 py-0.2 text-[9px] rounded-full bg-rose-950 text-rose-300" x-text="stats.hidden_jobs"></span>
+                            </template>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Row 2: Sort By Controls (MATCH, PAY, Date, Distance) -->
+                <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-bold text-slate-400 uppercase tracking-wider text-[11px] flex items-center gap-1">
+                            <span>⚡ Sort By:</span>
+                        </span>
+
+                        <!-- Sort Pill: MATCH -->
+                        <button @click="setSort('match')" 
+                                :class="sortBy === 'match' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                                class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                            <span>🎯 Match Score</span>
+                            <span x-show="sortBy === 'match'">▼</span>
+                        </button>
+
+                        <!-- Sort Pill: PAY -->
+                        <button @click="setSort('pay')" 
+                                :class="sortBy === 'pay' ? 'bg-emerald-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                                class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                            <span>💵 Pay / Salary</span>
+                            <span x-show="sortBy === 'pay'">▼</span>
+                        </button>
+
+                        <!-- Sort Pill: Date -->
+                        <button @click="setSort('date')" 
+                                :class="sortBy === 'date' ? 'bg-amber-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                                class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                            <span>🕒 Posting Date (Newest)</span>
+                            <span x-show="sortBy === 'date'">▼</span>
+                        </button>
+
+                        <!-- Sort Pill: Distance from 90038 (Hollywood) -->
+                        <button @click="setSort('distance')" 
+                                :class="sortBy === 'distance' ? 'bg-purple-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                                class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                            <span>📍 Distance (Closest)</span>
+                            <span x-show="sortBy === 'distance'">▲</span>
+                        </button>
+                    </div>
+
+                    <div class="text-slate-400 text-xs font-semibold">
+                        <span>📍 Centered at 90038 (Hollywood, Los Angeles)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job Cards List -->
+            <div class="space-y-4">
+                <template x-if="loading">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center text-slate-400">
+                        Evaluating live matches against Harrison Wheeler's resume...
+                    </div>
+                </template>
+
+                <template x-if="!loading && sortedJobs.length === 0">
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
+                        <p class="text-slate-400 text-base">No job matches found for current filters.</p>
+                        <button @click="triggerScrape()" class="mt-4 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg">Run Scraper Now</button>
+                    </div>
+                </template>
+
+                <template x-for="job in sortedJobs" :key="job.id">
+                    <div class="bg-slate-900/90 border border-slate-800 hover:border-indigo-800/60 transition rounded-xl p-6 shadow-xl">
+                        <div class="flex flex-col md:flex-row gap-5 justify-between items-start">
+                            <div class="flex-1 w-full">
+                                <!-- Category, Location, Distance, Salary, and Age Badges -->
+                                <div class="flex flex-wrap items-center gap-2 mb-2.5">
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800" x-text="getCategoryLabel(job.category)"></span>
+                                    
+                                    <template x-if="job.is_legal_ai && job.category !== 'Legal AI'">
+                                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-950 text-purple-300 border border-purple-800">✨ AI Practice</span>
                                     </template>
-                                </span>
 
-                                <!-- Salary Range Badge -->
-                                <template x-if="job.salary_display">
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-700 shadow-sm" x-text="job.salary_display"></span>
-                                </template>
+                                    <!-- Location & Proximity Distance Badge from 90038 -->
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium text-slate-300 bg-slate-950 border border-slate-800 inline-flex items-center gap-1">
+                                        <span>📍</span>
+                                        <span x-text="job.location"></span>
+                                        <template x-if="calculateDistance(job.location) !== null">
+                                            <span class="text-purple-300 font-bold ml-1" x-text="'(' + calculateDistance(job.location) + ' mi)'"></span>
+                                        </template>
+                                    </span>
 
-                                <!-- Age / Recency Pill -->
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-sm"
-                                      :class="(job.age_display && job.age_display.includes('Today')) ? 'bg-amber-950/80 text-amber-300 border-amber-700' : 'bg-slate-950 text-slate-300 border-slate-800'"
-                                      x-text="job.age_display || formatAge(job.date_posted, job.date_discovered)">
-                                </span>
+                                    <!-- Salary Range Badge -->
+                                    <template x-if="job.salary_display">
+                                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-700 shadow-sm" x-text="job.salary_display"></span>
+                                    </template>
 
-                                <template x-if="job.status !== 'new'">
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800" x-text="job.status"></span>
-                                </template>
-                            </div>
+                                    <!-- Age / Recency Pill -->
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-sm"
+                                          :class="(job.age_display && job.age_display.includes('Today')) ? 'bg-amber-950/80 text-amber-300 border-amber-700' : 'bg-slate-950 text-slate-300 border-slate-800'"
+                                          x-text="job.age_display || formatAge(job.date_posted, job.date_discovered)">
+                                    </span>
 
-                            <!-- Job Title & Company -->
-                            <h3 class="text-xl font-bold text-white hover:text-indigo-300 transition">
-                                <a :href="job.job_url" target="_blank" rel="noopener noreferrer" x-text="job.title"></a>
-                            </h3>
-                            <div class="text-sm font-semibold text-slate-300 mt-1">
-                                <span class="text-slate-200" x-text="job.company"></span>
-                                <span class="text-slate-600 font-normal mx-1">•</span>
-                                <span class="text-slate-400 font-normal text-xs uppercase" x-text="'via ' + job.source"></span>
-                            </div>
+                                    <template x-if="job.status !== 'new'">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800" x-text="job.status"></span>
+                                    </template>
+                                </div>
 
-                            <!-- Personalized Match Reasons Tailored to Harrison -->
-                            <div class="flex flex-wrap gap-1.5 mt-3">
-                                <template x-for="reason in job.match_reasons" :key="reason">
-                                    <span class="px-2.5 py-1 rounded-md bg-slate-950 text-indigo-200 border border-indigo-900/40 text-xs font-medium" x-text="reason"></span>
-                                </template>
-                            </div>
+                                <!-- Job Title & Company -->
+                                <h3 class="text-xl font-bold text-white hover:text-indigo-300 transition">
+                                    <a :href="job.job_url" target="_blank" rel="noopener noreferrer" x-text="job.title"></a>
+                                </h3>
+                                <div class="text-sm font-semibold text-slate-300 mt-1">
+                                    <span class="text-slate-200" x-text="job.company"></span>
+                                    <span class="text-slate-600 font-normal mx-1">•</span>
+                                    <span class="text-slate-400 font-normal text-xs uppercase" x-text="'via ' + job.source"></span>
+                                </div>
 
-                            <!-- Short Snippet View (When Collapsed) -->
-                            <div x-show="!expandedJobs[job.id]" class="mt-3.5 text-slate-400 text-sm leading-relaxed">
-                                <span x-text="cleanSnippet(job.description_snippet || job.description)"></span>
-                                <button @click="toggleExpand(job.id)" class="text-indigo-400 hover:text-indigo-300 font-semibold ml-2 inline-flex items-center text-xs underline cursor-pointer">
-                                    Show full description ▾
-                                </button>
-                            </div>
+                                <!-- Personalized Match Reasons Tailored to Harrison -->
+                                <div class="flex flex-wrap gap-1.5 mt-3">
+                                    <template x-for="reason in job.match_reasons" :key="reason">
+                                        <span class="px-2.5 py-1 rounded-md bg-slate-950 text-indigo-200 border border-indigo-900/40 text-xs font-medium" x-text="reason"></span>
+                                    </template>
+                                </div>
 
-                            <!-- Full Description View (When Expanded) -->
-                            <div x-show="expandedJobs[job.id]" class="mt-4 p-5 bg-slate-950 rounded-xl border border-indigo-900/40 text-slate-300 text-sm leading-relaxed shadow-inner">
-                                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3.5">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm">📄</span>
-                                        <span class="font-bold text-indigo-300 uppercase tracking-wider text-xs">Full Job Description & Requirements</span>
-                                    </div>
-                                    <button @click="toggleExpand(job.id)" class="text-slate-400 hover:text-white text-xs font-semibold px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
-                                        Collapse ▴
+                                <!-- Short Snippet View (When Collapsed) -->
+                                <div x-show="!expandedJobs[job.id]" class="mt-3.5 text-slate-400 text-sm leading-relaxed">
+                                    <span x-text="cleanSnippet(job.description_snippet || job.description)"></span>
+                                    <button @click="toggleExpand(job.id)" class="text-indigo-400 hover:text-indigo-300 font-semibold ml-2 inline-flex items-center text-xs underline cursor-pointer">
+                                        Show full description ▾
                                     </button>
                                 </div>
-                                <div class="whitespace-pre-line text-slate-300 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar select-text text-sm leading-relaxed" x-text="cleanDescription(job.description)"></div>
-                                
-                                <div class="mt-4 pt-3.5 border-t border-slate-800 flex flex-wrap justify-between items-center gap-3">
-                                    <span class="text-slate-400 text-xs font-medium">Ready to apply? This link directs to the official employer posting.</span>
-                                    <a :href="job.job_url" target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-md transition inline-flex items-center gap-1.5">
-                                        Apply on Official Site &rarr;
+
+                                <!-- Full Description View (When Expanded) -->
+                                <div x-show="expandedJobs[job.id]" class="mt-4 p-5 bg-slate-950 rounded-xl border border-indigo-900/40 text-slate-300 text-sm leading-relaxed shadow-inner">
+                                    <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3.5">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm">📄</span>
+                                            <span class="font-bold text-indigo-300 uppercase tracking-wider text-xs">Full Job Description & Requirements</span>
+                                        </div>
+                                        <button @click="toggleExpand(job.id)" class="text-slate-400 hover:text-white text-xs font-semibold px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+                                            Collapse ▴
+                                        </button>
+                                    </div>
+                                    <div class="whitespace-pre-line text-slate-300 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar select-text text-sm leading-relaxed" x-text="cleanDescription(job.description)"></div>
+                                    
+                                    <div class="mt-4 pt-3.5 border-t border-slate-800 flex flex-wrap justify-between items-center gap-3">
+                                        <span class="text-slate-400 text-xs font-medium">Ready to apply? This link directs to the official employer posting.</span>
+                                        <a :href="job.job_url" target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-md transition inline-flex items-center gap-1.5">
+                                            Apply on Official Site &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Match Score & Action Buttons -->
+                            <div class="flex md:flex-col items-center md:items-end justify-between gap-3 shrink-0 self-start">
+                                <div class="flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-indigo-950/90 border border-indigo-500/50 text-center shadow-lg">
+                                    <span class="text-xl font-black text-indigo-300" x-text="job.match_score"></span>
+                                    <span class="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">MATCH</span>
+                                </div>
+
+                                <div class="flex items-center gap-2 mt-1">
+                                    <!-- Direct Apply Button -->
+                                    <a :href="job.job_url" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow transition">
+                                        Apply &rarr;
                                     </a>
+
+                                    <!-- Save Button -->
+                                    <button @click="updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')" :class="job.status === 'saved' ? 'text-amber-400 bg-amber-950/60 border-amber-700' : 'text-slate-400 bg-slate-800 hover:text-white border-slate-700'" class="p-2 rounded-lg border text-xs transition" title="Save Job">
+                                        ⭐
+                                    </button>
+                                    <!-- Applied Button -->
+                                    <button @click="updateStatus(job.id, job.status === 'applied' ? 'new' : 'applied')" :class="job.status === 'applied' ? 'text-emerald-400 bg-emerald-950/60 border-emerald-700' : 'text-slate-400 bg-slate-800 hover:text-white border-slate-700'" class="p-2 rounded-lg border text-xs transition" title="Mark Applied">
+                                        ✅
+                                    </button>
+                                    <!-- Hide Forever Button -->
+                                    <button @click="updateStatus(job.id, job.status === 'hidden' ? 'new' : 'hidden')" :class="job.status === 'hidden' ? 'text-rose-400 bg-rose-950/60 border-rose-700' : 'text-slate-400 bg-slate-800 hover:text-rose-400 border-slate-700'" class="p-2 rounded-lg border text-xs transition" :title="job.status === 'hidden' ? 'Unhide Job' : 'Hide Forever'">
+                                        <span x-text="job.status === 'hidden' ? '👁️' : '🚫'"></span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Right Column: Match Score & Action Buttons -->
-                        <div class="flex md:flex-col items-center md:items-end justify-between gap-3 shrink-0 self-start">
-                            <div class="flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-indigo-950/90 border border-indigo-500/50 text-center shadow-lg">
-                                <span class="text-xl font-black text-indigo-300" x-text="job.match_score"></span>
-                                <span class="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">MATCH</span>
-                            </div>
-
-                            <div class="flex items-center gap-2 mt-1">
-                                <!-- Direct Apply Button -->
-                                <a :href="job.job_url" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow transition">
-                                    Apply &rarr;
-                                </a>
-
-                                <!-- Save Button -->
-                                <button @click="updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')" :class="job.status === 'saved' ? 'text-amber-400 bg-amber-950/60 border-amber-700' : 'text-slate-400 bg-slate-800 hover:text-white border-slate-700'" class="p-2 rounded-lg border text-xs transition" title="Save Job">
-                                    ⭐
-                                </button>
-                                <!-- Applied Button -->
-                                <button @click="updateStatus(job.id, job.status === 'applied' ? 'new' : 'applied')" :class="job.status === 'applied' ? 'text-emerald-400 bg-emerald-950/60 border-emerald-700' : 'text-slate-400 bg-slate-800 hover:text-white border-slate-700'" class="p-2 rounded-lg border text-xs transition" title="Mark Applied">
-                                    ✅
-                                </button>
-                            </div>
-                        </div>
                     </div>
-                </div>
-            </template>
+                </template>
+            </div>
         </div>
     </div>
 
@@ -341,6 +384,11 @@
 
         function jobApp() {
             return {
+                isAuthenticated: false,
+                enteredPasscode: '',
+                authError: '',
+                isVerifying: false,
+
                 jobs: [],
                 allAvailableJobs: [],
                 stats: {},
@@ -360,8 +408,43 @@
                 },
 
                 async init() {
-                    await this.fetchStats();
-                    await this.fetchJobs();
+                    // Check local session
+                    const savedAuth = sessionStorage.getItem('legal_hunter_auth');
+                    if (savedAuth === 'true') {
+                        this.isAuthenticated = true;
+                        await this.fetchStats();
+                        await this.fetchJobs();
+                    }
+                },
+
+                async verifyPasscode() {
+                    this.isVerifying = true;
+                    this.authError = '';
+                    try {
+                        const res = await fetch('/api/auth/verify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ passcode: this.enteredPasscode.trim() })
+                        });
+                        if (res.ok) {
+                            this.isAuthenticated = true;
+                            sessionStorage.setItem('legal_hunter_auth', 'true');
+                            await this.fetchStats();
+                            await this.fetchJobs();
+                        } else {
+                            this.authError = 'Incorrect Passcode. Please try again.';
+                        }
+                    } catch (e) {
+                        this.authError = 'Connection error. Please try again.';
+                    } finally {
+                        this.isVerifying = false;
+                    }
+                },
+
+                lockDashboard() {
+                    this.isAuthenticated = false;
+                    this.enteredPasscode = '';
+                    sessionStorage.removeItem('legal_hunter_auth');
                 },
 
                 setSort(sortKey) {
@@ -512,7 +595,7 @@
                 async fetchJobs() {
                     this.loading = true;
                     try {
-                        let url = `/api/jobs?limit=100`;
+                        let url = `/api/jobs?limit=250`;
                         if (this.selectedCategory) url += `&category=${encodeURIComponent(this.selectedCategory)}`;
                         if (this.selectedStatus) url += `&status=${encodeURIComponent(this.selectedStatus)}`;
                         if (this.searchQuery) url += `&search=${encodeURIComponent(this.searchQuery)}`;
@@ -523,7 +606,7 @@
                         if (!this.selectedCategory && !this.searchQuery && !this.selectedStatus) {
                             this.allAvailableJobs = this.jobs;
                         } else if (this.allAvailableJobs.length === 0) {
-                            const allRes = await fetch(`/api/jobs?limit=100`);
+                            const allRes = await fetch(`/api/jobs?limit=250`);
                             this.allAvailableJobs = await allRes.json();
                         }
                     } catch (e) {

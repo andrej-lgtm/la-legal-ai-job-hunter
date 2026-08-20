@@ -1,11 +1,13 @@
-"""FastAPI local web dashboard for LA Legal & AI Job Hunter."""
+"""FastAPI local and cloud web dashboard for LA Legal & AI Job Hunter."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from src.config import load_config
 from src.db.database import Database
 from src.engine.scorer import score_job
@@ -18,7 +20,7 @@ db = Database(config.database.path)
 
 app = FastAPI(
     title="LA Legal & AI Job Hunter",
-    description="Local web dashboard to view and track legal & legal-AI opportunities in Los Angeles.",
+    description="Live web dashboard to view and track legal & legal-AI opportunities in Los Angeles.",
     version="1.0.0",
 )
 
@@ -31,6 +33,10 @@ app.add_middleware(
 )
 
 
+class AuthRequest(BaseModel):
+    passcode: str
+
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
     """Serve the dashboard UI."""
@@ -39,15 +45,24 @@ async def dashboard():
         return HTMLResponse(content=f.read())
 
 
+@app.post("/api/auth/verify")
+async def verify_passcode(req: AuthRequest):
+    """Verify dashboard passcode."""
+    expected_passcode = os.getenv("DASHBOARD_PASSCODE", "90038")
+    if req.passcode == expected_passcode:
+        return {"authenticated": True}
+    raise HTTPException(status_code=401, detail="Invalid Passcode")
+
+
 @app.get("/api/jobs")
 async def get_jobs(
     status: Optional[str] = None,
     category: Optional[str] = None,
-    min_score: int = 20,  # Display anything and everything with match score >= 20
+    min_score: int = 20,
     search: Optional[str] = None,
     limit: int = 250,
 ):
-    """API endpoint to get filtered jobs (displaying everything with match score >= 20)."""
+    """API endpoint to get filtered jobs (defaulting to score >= 20 and excluding hidden)."""
     effective_min_score = 0 if search else min_score
     jobs = db.get_jobs(status=status, category=category, min_score=effective_min_score, limit=limit)
     if search:
@@ -64,8 +79,8 @@ async def get_jobs(
 
 @app.post("/api/jobs/{job_id}/status")
 async def update_status(job_id: str, status: str = Query(...), notes: Optional[str] = None):
-    """Update application tracking status for a job."""
-    if status not in ["new", "saved", "applied", "interviewing", "rejected"]:
+    """Update application tracking status for a job (supports new, saved, applied, hidden)."""
+    if status not in ["new", "saved", "applied", "interviewing", "rejected", "hidden"]:
         raise HTTPException(status_code=400, detail="Invalid status")
     success = db.update_job_status(job_id, status, notes)
     if not success:

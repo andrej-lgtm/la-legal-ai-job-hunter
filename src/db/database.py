@@ -222,12 +222,12 @@ class Database:
         limit: int = 100,
     ) -> List[JobPosting]:
         """Fetch jobs based on status, score threshold, and category."""
-        query = "SELECT * FROM jobs WHERE match_score >= ?"
-        params: List[Any] = [min_score]
-
         if status:
-            query += " AND status = ?"
-            params.append(status)
+            query = "SELECT * FROM jobs WHERE match_score >= ? AND status = ?"
+            params: List[Any] = [min_score, status]
+        else:
+            query = "SELECT * FROM jobs WHERE match_score >= ? AND (status IS NULL OR status != 'hidden')"
+            params: List[Any] = [min_score]
 
         if category:
             query += " AND category = ?"
@@ -243,7 +243,7 @@ class Database:
             return [self._row_to_posting(r) for r in rows]
 
     def update_job_status(self, job_id: str, status: str, notes: Optional[str] = None) -> bool:
-        """Update job status (e.g. 'applied', 'saved', 'dismissed')."""
+        """Update job status (e.g. 'applied', 'saved', 'hidden', 'new')."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
             if notes is not None:
@@ -260,10 +260,10 @@ class Database:
         """Get summary statistics for dashboard."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM jobs")
+            cursor.execute("SELECT COUNT(*) FROM jobs WHERE (status IS NULL OR status != 'hidden')")
             total_jobs = cursor.fetchone()[0]
 
-            cursor.execute("SELECT COUNT(*) FROM jobs WHERE match_score >= 80")
+            cursor.execute("SELECT COUNT(*) FROM jobs WHERE match_score >= 80 AND (status IS NULL OR status != 'hidden')")
             qualified_jobs = cursor.fetchone()[0]
 
             cursor.execute("SELECT COUNT(*) FROM jobs WHERE status = 'applied'")
@@ -272,7 +272,10 @@ class Database:
             cursor.execute("SELECT COUNT(*) FROM jobs WHERE status = 'saved'")
             saved_jobs = cursor.fetchone()[0]
 
-            cursor.execute("SELECT category, COUNT(*) FROM jobs WHERE match_score >= 80 GROUP BY category")
+            cursor.execute("SELECT COUNT(*) FROM jobs WHERE status = 'hidden'")
+            hidden_jobs = cursor.fetchone()[0]
+
+            cursor.execute("SELECT category, COUNT(*) FROM jobs WHERE match_score >= 80 AND (status IS NULL OR status != 'hidden') GROUP BY category")
             category_counts = dict(cursor.fetchall())
 
             return {
@@ -280,6 +283,7 @@ class Database:
                 "qualified_jobs": qualified_jobs,
                 "applied_jobs": applied_jobs,
                 "saved_jobs": saved_jobs,
+                "hidden_jobs": hidden_jobs,
                 "category_counts": category_counts,
             }
 
