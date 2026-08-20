@@ -17,6 +17,7 @@ from src.db.database import Database
 from src.engine.scorer import score_job
 from src.engine.salary_parser import extract_salary, format_salary_display
 from src.engine.classifier import classify_role
+from src.scrapers.base import normalize_company, normalize_title
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +63,32 @@ def generate_published_site(output_dir: str = "docs") -> str:
             )
             conn.commit()
 
-    # Fetch all active jobs (score >= 20, non-hidden)
-    jobs = db.get_jobs(min_score=20, limit=500)
+    # Fetch all active jobs (score >= 20, non-hidden) and deduplicate
+    raw_jobs = db.get_jobs(min_score=20, limit=500)
+    
+    # Deduplicate cluster by company + title
+    seen_clusters = {}
+    for j in raw_jobs:
+        c_norm = normalize_company(j.company)
+        t_norm = normalize_title(j.title)
+        key = (c_norm, t_norm)
+        if key not in seen_clusters:
+            seen_clusters[key] = j
+        else:
+            existing = seen_clusters[key]
+            # Keep the more informative posting
+            if len(j.description or "") > len(existing.description or ""):
+                seen_clusters[key] = j
+            elif len(j.description or "") == len(existing.description or "") and j.match_score > existing.match_score:
+                seen_clusters[key] = j
+            elif not existing.salary_display and j.salary_display:
+                existing.salary_display = j.salary_display
+                existing.salary_min = j.salary_min
+                existing.salary_max = j.salary_max
+
+    jobs = list(seen_clusters.values())
+    # Sort by match_score descending
+    jobs.sort(key=lambda x: (x.match_score, len(x.description or "")), reverse=True)
     jobs_data = [j.model_dump() for j in jobs]
     stats = db.get_stats()
 

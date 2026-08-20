@@ -12,48 +12,66 @@ from pydantic import BaseModel, Field
 def normalize_company(company: str) -> str:
     """Normalize company name to merge common aliases."""
     c = str(company or "").lower().strip()
-    c = re.sub(r"\b(inc\.?|llc|corp\.?|corporation|ltd\.?|co\.?|llp|p\.?c\.?)\b", "", c)
+    c = re.sub(r"\b(inc\.?|llc|corp\.?|corporation|ltd\.?|co\.?|llp|p\.?c\.?|group|holdings|us|usa)\b", "", c)
     c = re.sub(r"[^\w\s]", "", c).strip()
     c = re.sub(r"\s+", " ", c)
     if any(k in c for k in ["amazon", "aws", "amazon web services"]):
         return "amazon"
     if "pelican" in c:
         return "pelican products"
-    if any(k in c for k in ["disney", "hulu", "abc"]):
+    if any(k in c for k in ["disney", "hulu", "abc", "espn"]):
         return "disney"
     if "riot" in c:
         return "riot games"
     if any(k in c for k in ["nbc", "nbcu", "nbcuniversal", "telemundo", "peacock"]):
         return "nbcuniversal"
-    if any(k in c for k in ["paramount", "cbs", "viacom"]):
+    if any(k in c for k in ["paramount", "cbs", "viacom", "showtime", "pluto"]):
         return "paramount"
+    if "dla piper" in c:
+        return "dla piper"
+    if "paul hastings" in c:
+        return "paul hastings"
+    if "cooley" in c:
+        return "cooley"
+    if any(k in c for k in ["munger", "tolles"]):
+        return "munger tolles"
+    if any(k in c for k in ["omelveny", "o melveny", "o'melveny"]):
+        return "omelveny myers"
+    if "wilson elser" in c:
+        return "wilson elser"
+    if "fox" in c:
+        return "fox"
     return c
 
 
 def normalize_title(title: str) -> str:
     """Normalize title to catch duplicates posted with slight title variations."""
     t = str(title or "").lower().strip()
-    t = re.sub(r"\b(remote|hybrid|full[- ]time|onsite|\(remote\)|\(hybrid\)|\(onsite\))\b", "", t)
+    t = re.sub(r"\b(remote|hybrid|full[- ]time|onsite|\(remote\)|\(hybrid\)|\(onsite\)|in[- ]person|flexible)\b", "", t)
     t = re.sub(r"[^\w\s]", "", t).strip()
     t = re.sub(r"\s+", " ", t)
     return t
 
 
 def normalize_location(location: str) -> str:
-    """Normalize city name within LA County."""
+    """Normalize city name within LA County / Southern California."""
     loc = str(location or "").lower().strip()
-    loc = re.sub(r"\b(ca|california|usa|us|united states)\b", "", loc)
+    loc = re.sub(r"\b(ca|california|usa|us|united states|county|city|metropolitan area|metro area|metro|greater|area)\b", "", loc)
     loc = re.sub(r"[^\w\s]", "", loc).strip()
     loc = re.sub(r"\s+", " ", loc)
+    
+    # Normalize general LA terms
+    if any(k in loc for k in ["los angeles", "la", "hollywood", "century city", "westwood", "beverly hills", "santa monica", "culver city"]):
+        return "los angeles"
     return loc
 
 
 def generate_job_id(company: str, title: str, location: str = "") -> str:
-    """Generate a stable unique SHA256 ID based on normalized company, title, and location."""
+    """Generate a stable unique SHA256 ID based on normalized company and title."""
     c = normalize_company(company)
     t = normalize_title(title)
-    l = normalize_location(location)
-    raw = f"{c}|{t}|{l}"
+    # Deduplicate on company + title in target region
+    raw = f"{c}|{t}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
