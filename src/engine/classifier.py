@@ -16,7 +16,7 @@ LEGAL_TITLE_KEYWORDS = [
     r"\b(counsel|attorney|lawyer|legal\s+engineer|legal\s+technologist|legal\s+ops|legal\s+operations|legal\s+innovation)\b",
     r"\b(corporate\s+counsel|commercial\s+counsel|associate\s+counsel|associate\s+attorney)\b",
     r"\b(corporate\s+associate|m&a\s+associate|mergers\s+and\s+acquisitions\s+associate|technology\s+associate|ip\s+associate|privacy\s+associate)\b",
-    r"\b(associate\s*[-–—]\s*ai|ai\s+associate|emerging\s+tech\s+associate|associate)\b",
+    r"\b(associate\s*[-–—]\s*ai|ai\s+associate|emerging\s+tech\s+associate|associate|litigation\s+associate|litigation\s+attorney)\b",
     r"\b(business\s+&\s+legal\s+affairs|legal\s+affairs|business\s+affairs)\b",
     r"\b(contract\s+manager|contracts\s+manager)\b",
 ]
@@ -59,19 +59,20 @@ def classify_role(title: str, text: str = "") -> Tuple[str, bool]:
     if has_ai_title:
         return "Legal AI", True
 
-    # 6. In-House Counsel / Business Affairs check
+    # 6. Litigation Associate check
+    if any(w in title_lower for w in ["litigation associate", "litigation attorney", "litigation counsel", "trial attorney", "defense attorney", "civil litigation", "commercial litigation", "entertainment litigation"]):
+        return "Litigation Associate", is_legal_ai
+
+    # 7. In-House Counsel / Business Affairs check
     if any(w in title_lower for w in ["in-house", "corporate counsel", "commercial counsel", "product counsel", "privacy counsel", "counsel, corporate", "contracts counsel", "business affairs", "legal affairs"]):
         return "In-House Counsel", is_legal_ai
 
-    # 7. Associate Counsel & Firm Associate check
+    # 8. Associate Counsel & Firm Associate check
     if any(w in title_lower for w in ["associate counsel", "associate attorney", "junior counsel", "associate corporate", "associate commercial", "corporate associate", "m&a associate", "mergers and acquisitions associate", "associate"]):
         return "Associate Counsel", is_legal_ai
 
-    # 8. General Counsel/Attorney role
+    # 9. General Counsel/Attorney role
     if "counsel" in title_lower or "attorney" in title_lower or "lawyer" in title_lower:
         return "In-House Counsel", is_legal_ai
-
-    if has_ai_title:
-        return "Legal AI", True
 
     return "Associate Counsel", is_legal_ai

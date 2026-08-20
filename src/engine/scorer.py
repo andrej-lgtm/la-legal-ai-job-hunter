@@ -33,10 +33,6 @@ DISQUALIFIED_TITLE_PATTERNS = [
     r"\b(software\s+engineer|devops|data\s+scientist|security\s+engineer|systems\s+engineer)\b",
     r"\b(driver|photographer|producer|editor|audio|camera|janitor|maintenance)\b",
     r"\b(paralegal|legal\s+assistant|legal\s+secretary|clerk|coordinator)\b",
-    # Pure Litigation Roles Disqualification
-    r"\b(litigation\s+associate|litigation\s+attorney|litigation\s+counsel|trial\s+attorney|defense\s+attorney|civil\s+litigation\s+associate)\b",
-    r"\b(personal\s+injury|lemon\s+law|insurance\s+defense|workers\s+comp|workers'\s+comp|wage\s+and\s+hour|class\s+action\s+associate)\b",
-    r"\b(complex\s+business\s+litigation|entertainment\s+litigation|appellate\s+associate|litigation\s+contract\s+attorney)\b",
 ]
 
 
@@ -115,26 +111,13 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         job.match_reasons = ["🚫 Requires New York State Bar admission (Candidate holds State Bar of California license)"]
         return 0, job.match_reasons, False
 
-    # -------------------------------------------------------------
-    # 3. PURE LITIGATION DISQUALIFICATION
-    # -------------------------------------------------------------
-    is_pure_litigation = any(re.search(pat, title_lower, re.IGNORECASE) for pat in [
-        r"\b(litigation\s+associate|litigation\s+attorney|litigation\s+counsel|trial\s+attorney|defense\s+attorney|civil\s+litigation)\b",
-        r"\b(personal\s+injury|lemon\s+law|insurance\s+defense|workers\s+comp|wage\s+and\s+hour|class\s+action)\b",
-        r"\b(complex\s+business\s+litigation|entertainment\s+litigation|contract\s+attorney\s+complex\s+business\s+litigation)\b",
-    ])
-    if is_pure_litigation:
-        job.match_score = 0
-        job.match_reasons = [f"🚫 Pure litigation role excluded: '{job.title}' (Focus: In-House, Tech/AI, Corporate & Entertainment)"]
-        return 0, job.match_reasons, False
-
     if any(re.search(pat, title_lower, re.IGNORECASE) for pat in DISQUALIFIED_TITLE_PATTERNS):
         job.match_score = 0
         job.match_reasons = [f"🚫 Disqualified role/title: '{job.title}'"]
         return 0, job.match_reasons, False
 
     # -------------------------------------------------------------
-    # 4. STRICT HARD JD & BAR REQUIREMENT GATE (USER DIRECTIVE)
+    # 3. STRICT HARD JD & BAR REQUIREMENT GATE (USER DIRECTIVE)
     # -------------------------------------------------------------
     has_jd, is_jd_req, jd_notes = detect_jd_requirement(job.description, job.title)
     job.jd_required = is_jd_req
@@ -159,7 +142,7 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
     job.exp_raw = exp_raw
 
     # -------------------------------------------------------------
-    # 5. PERSONALIZED RESUME & EXPERIENCE MATCHING
+    # 4. PERSONALIZED RESUME & EXPERIENCE MATCHING
     # -------------------------------------------------------------
     total_score, match_reasons, is_qualified = match_candidate_to_job(job)
     job.match_score = total_score

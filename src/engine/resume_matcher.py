@@ -1,4 +1,4 @@
-"""Personalized Resume Matcher with continuous progressive experience, practice area calibration, and pay alignment."""
+"""Personalized Resume Matcher with continuous progressive experience, practice area calibration, pay alignment, and litigation support."""
 
 import re
 from typing import List, Optional, Tuple
@@ -15,7 +15,7 @@ def match_candidate_to_job(
     - Base: 40 pts for passing Hard Gates (LA County, JD/CA Bar, <30d Recency).
     - Dimension 1: Experience Years Calibration (1-3 yrs: +25, 4 yrs: +10, 5 yrs: -15, 6-7 yrs: -25, 8-10 yrs: -35, 11-14 yrs: -45, 15+ yrs: -60).
     - Dimension 2: Seniority Title Calibration (+10 for Associate/Counsel, -15 to -25 for VP/GC/Director).
-    - Dimension 3: Practice Area & Domain Fit (+20 for AI/LegalTech, +18 for Entertainment BA, -25 for Real Estate/Tax).
+    - Dimension 3: Practice Area & Domain Fit (+20 for AI/LegalTech, +18 for Entertainment BA, -25 for Litigation, -25 for Real Estate/Tax).
     - Dimension 4: Candidate Superpowers & Studio Affinity (+4 to +10 pts).
     - Dimension 5: Compensation Alignment (Ideal: $170k+ / $80+/hr: +10, $140k-$169k: -5, $110k-$139k: -15, <$110k: -25, Unstated: 0 neutral).
 
@@ -85,7 +85,7 @@ def match_candidate_to_job(
     # Dimension 2: Seniority Title Calibration
     # -------------------------------------------------------------------------
     is_senior_exec_title = bool(re.search(r"\b(director|senior director|vp|vice president|general counsel|chief legal officer|partner|managing director|head of legal)\b", title_lower))
-    is_target_title = bool(re.search(r"\b(associate|junior counsel|counsel|legal engineer|contract attorney|legal specialist|associate attorney|corporate associate)\b", title_lower))
+    is_target_title = bool(re.search(r"\b(associate|junior counsel|counsel|legal engineer|contract attorney|legal specialist|associate attorney|corporate associate|litigation associate)\b", title_lower))
 
     if is_senior_exec_title:
         if exp_min and exp_min >= 8:
@@ -106,6 +106,7 @@ def match_candidate_to_job(
     is_tax_erisa = bool(re.search(r"\b(tax\s+counsel|tax\s+attorney|erisa|executive\s+compensation|partnership\s+tax)\b", f"{title_lower} {combined_text}"))
     is_patent_bar = bool(re.search(r"\b(patent\s+prosecution|patent\s+bar|uspto\s+registration|patent\s+attorney)\b", f"{title_lower} {combined_text}"))
     is_labor_union = bool(re.search(r"\b(nlrb|collective\s+bargaining|labor\s+relations|union\s+negotiations)\b", f"{title_lower} {combined_text}"))
+    is_litigation = bool(re.search(r"\b(litigation|trial\s+attorney|defense\s+attorney|civil\s+litigation|commercial\s+litigation|entertainment\s+litigation|personal\s+injury|lemon\s+law|insurance\s+defense|complex\s+litigation|trial\s+lawyer)\b", title_lower))
 
     if is_real_estate:
         score -= 25
@@ -119,6 +120,9 @@ def match_candidate_to_job(
     elif is_labor_union:
         score -= 20
         reasons.append("⚠️ Practice Mismatch: Labor Relations / Union Bargaining focus")
+    elif is_litigation:
+        score -= 25
+        reasons.append("⚖️ Litigation Practice: Secondary focus (Primary: In-House, Tech/AI, Corporate)")
 
     # 3B. Positive Practice Alignment
     has_ai_focus = bool(re.search(r"\b(legal\s+engineer|associate\s*[-–—]\s*ai|ai\s+associate|ai\s+counsel|ai\s+attorney|prompt|legaltech|legal\s+tech|legal\s+innovation)\b", f"{title_lower} {combined_text}"))
@@ -134,7 +138,7 @@ def match_candidate_to_job(
     elif is_corp_commercial:
         score += 15
         reasons.append("🏢 Strong Match: Corporate Transactions, Commercial Contracts & Licensing")
-    else:
+    elif not is_litigation:
         score += 10
         reasons.append("⚖️ Corporate / Legal Practice match")
 
@@ -153,7 +157,14 @@ def match_candidate_to_job(
         score += 4
         reasons.append("🎭 Key Skills: Licensing, copyright, distribution, or talent agreements")
 
-    # 4C. Employer Affinity
+    # 4C. Litigation Skills (When applicable)
+    if is_litigation:
+        has_lit_skills = any(k in combined_text for k in ["discovery", "motions", "motion practice", "depositions", "briefs", "courtroom", "trial prep"])
+        if has_lit_skills:
+            score += 5
+            reasons.append("📑 Case Skills: Discovery, motions, and deposition experience")
+
+    # 4D. Employer Affinity
     if any(k in comp_lower for k in ["mgm", "amazon mgm", "metro-goldwyn-mayer"]):
         score += 5
         reasons.append("🏆 Direct Alumni Affinity: Former employer (MGM Studios / Amazon MGM)")
