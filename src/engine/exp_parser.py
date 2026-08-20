@@ -104,8 +104,13 @@ def extract_experience(
                     f"Requires {exp_min}+ years experience",
                 )
 
-            # Ideal Match: 1-3 years (Harrison's exact sweet spot)
-            if exp_min <= 2 or (exp_min == 3 and (exp_max is None or exp_max <= 4)):
+            # Ideal Match: 1-3 years (Harrison's exact sweet spot: 1-2 yrs, 1-3 yrs, 2 yrs, 2-3 yrs)
+            is_strict_prime = (
+                (exp_min in [1, 2] and (exp_max is None or exp_max <= 3))
+                or (exp_min == 3 and exp_max == 3)
+            )
+
+            if is_strict_prime:
                 return (
                     exp_min,
                     exp_max,
@@ -114,15 +119,15 @@ def extract_experience(
                     True,
                     f"Prime 1–3 years experience match ({raw_str.strip()})",
                 )
-            # Acceptable Reach Match: 3-4 or 4+ years
-            elif exp_min <= max_target and (exp_max is None or exp_max <= max_target + 1):
+            # Reach Match: 3-4 years, 2-4 years, or 4+ years
+            elif (exp_min == 3 and (exp_max is None or exp_max >= 4)) or exp_min == 4 or (exp_min == 2 and exp_max and exp_max >= 4):
                 return (
                     exp_min,
                     exp_max,
                     raw_str,
                     True,
                     False,
-                    f"Acceptable 3–4 years reach experience ({raw_str.strip()})",
+                    f"Reach 3–4 years experience ({raw_str.strip()})",
                 )
             else:
                 return (

@@ -33,15 +33,21 @@ def match_candidate_to_job(
     # -------------------------------------------------------------------------
     # Dimension 1: Experience Level Calibration & Progressive Penalty
     # -------------------------------------------------------------------------
-    exp_min = job.exp_min
+    exp_min = getattr(job, "exp_min", None)
+    exp_max = getattr(job, "exp_max", None)
+
+    is_explicit_prime = bool(re.search(r"\b(1st[- ]2nd\s+year|1st\s+year|2nd\s+year|2nd[- ]3rd\s+year|1[- ]2\s*years?|1[- ]3\s*years?|1\s*to\s*2\s*years?|1\s*to\s*3\s*years?|class\s+of\s+202[234])\b", combined_text))
+    is_reach_3_4 = bool(re.search(r"\b(3[- ]4\s*years?|3[- ]5\s*years?|2[- ]4\s*years?|3\+?\s*years?|4\+?\s*years?|3\s*to\s*4\s*years?|3\s*to\s*5\s*years?|junior\s+to\s+mid)\b", combined_text))
 
     if exp_min is not None:
-        if 1 <= exp_min <= 3:
+        # True Prime Experience (1-3 years): requires 1-2 yrs, 1-3 yrs, 2 yrs, 2-3 yrs, or 3 yrs max
+        if (exp_min in [1, 2] and (exp_max is None or exp_max <= 3)) or (exp_min == 3 and exp_max == 3):
             score += 25
             reasons.append("🎯 Prime Experience: Requires 1–3 years experience")
-        elif exp_min == 4:
+        # Reach Experience (3-4 years): requires 3-4 yrs, 2-4 yrs, 4 yrs, 4+ yrs
+        elif (exp_min == 3 and (exp_max is None or exp_max >= 4)) or exp_min == 4 or (exp_min == 2 and exp_max and exp_max >= 4):
             score -= 5
-            reasons.append("⚠️ Experience Gap: Requires 4 years experience")
+            reasons.append("⚠️ Reach Experience: Requires 3–4 years experience")
         elif exp_min == 5:
             score -= 15
             reasons.append("⚠️ Experience Gap: Requires 5 years experience")
@@ -59,20 +65,22 @@ def match_candidate_to_job(
             reasons.append(f"🚫 Over-Senior Executive: Requires {exp_min}+ years experience")
     else:
         # Infer from description or title keywords
-        is_explicit_prime = bool(re.search(r"\b(1st-2nd\s+year|2nd\s+year|2nd-3rd\s+year|1-2\s*years?|1-3\s*years?|2\+?\s*years?|class\s+of\s+202[234])\b", combined_text))
-        is_reach_4 = bool(re.search(r"\b(3-4\s*years?|2-4\s*years?|4\+?\s*years?|junior\s+to\s+mid)\b", combined_text))
-        is_5_7_text = bool(re.search(r"\b(5-7\s*years?|5\+?\s*years?|6-8\s*years?)\b", combined_text))
+        is_5_7_text = bool(re.search(r"\b(5[- ]7\s*years?|5\+?\s*years?|6[- ]8\s*years?)\b", combined_text))
+        is_8_plus_text = bool(re.search(r"\b(8\+?\s*years?|10\+?\s*years?|12\+?\s*years?)\b", combined_text))
         has_senior_word = bool(re.search(r"\b(senior|lead|principal|director|vp|vice president|general counsel)\b", title_lower))
 
         if is_explicit_prime:
             score += 25
-            reasons.append("🎯 Prime Experience")
-        elif is_reach_4:
+            reasons.append("🎯 Prime Experience: Requires 1–3 years experience")
+        elif is_reach_3_4:
             score -= 5
-            reasons.append("⚠️ Experience Gap: Requires 3–4 years experience")
+            reasons.append("⚠️ Reach Experience: Requires 3–4 years experience")
         elif is_5_7_text:
             score -= 20
             reasons.append("⚠️ Experience Gap: Requires 5–7 years experience")
+        elif is_8_plus_text:
+            score -= 35
+            reasons.append("🚫 Senior Level: Requires 8+ years experience")
         elif has_senior_word:
             score -= 20
             reasons.append("⚠️ Senior role indicated by title")
