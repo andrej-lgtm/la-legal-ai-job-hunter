@@ -159,42 +159,9 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
     job.exp_raw = exp_raw
 
     # -------------------------------------------------------------
-    # GRADED MATCHING TIERS FOR JD ROLES (20% to 100%)
+    # 5. PERSONALIZED RESUME & EXPERIENCE MATCHING
     # -------------------------------------------------------------
-
-    # TIER 1: Prime & Reach Target JD Roles (75% - 100%)
-    if is_exp_match:
-        total_score, match_reasons, is_qualified = match_candidate_to_job(job)
-        job.match_score = total_score
-        job.match_reasons = match_reasons
-        return total_score, match_reasons, is_qualified
-
-    # TIER 2: Senior / Stretch Legal Roles in LA (55% - 74%)
-    reasons = []
-    if exp_min and exp_min >= 5:
-        reasons.append(f"⚠️ Requires {exp_min}+ years experience")
-    elif "Senior role detected in title" in exp_reason:
-        reasons.append(f"⚠️ {exp_reason}")
-    else:
-        reasons.append(f"📋 {exp_reason}")
-
-    reasons.append("🎓 JD / CA Bar Required")
-
-    if "business affairs" in title_lower or "business and legal" in title_lower or "entertainment" in combined_lower:
-        reasons.append("🎬 Entertainment & Media Business Affairs in LA")
-    elif is_ai or "ai" in title_lower or "legal innovation" in title_lower:
-        reasons.append("🤖 Legal AI & Technology Operations")
-    elif "contracts" in title_lower or "licensing" in title_lower:
-        reasons.append("📑 Commercial Contracts & Licensing in LA")
-    else:
-        reasons.append("🏢 Corporate & Commercial Legal in LA")
-
-    score = 55
-    if "counsel" in title_lower or "business affairs" in title_lower or "corporate" in title_lower:
-        score += 10
-    if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "warner", "fox", "netflix"]):
-        score += 5
-
-    job.match_score = score
-    job.match_reasons = reasons
-    return score, reasons, True
+    total_score, match_reasons, is_qualified = match_candidate_to_job(job)
+    job.match_score = total_score
+    job.match_reasons = match_reasons
+    return total_score, match_reasons, is_qualified

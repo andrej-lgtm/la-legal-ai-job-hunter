@@ -21,7 +21,9 @@ class CandidateProfile(BaseModel):
     undergrad_degree: str = "B.A., Philosophy, Politics, and Law, cum laude (2018)"
     bar_state: str = "California"
     bar_year: int = 2023
-    years_experience: int = 2  # 2023-Present
+    years_experience: int = 2  # 2023-Present (~2 yrs post-bar)
+    target_exp_min: int = 1
+    target_exp_max: int = 4
 
     # Legal Tech & AI Superpowers
     certifications: List[str] = Field(
