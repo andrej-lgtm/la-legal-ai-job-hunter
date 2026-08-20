@@ -28,10 +28,10 @@ NON_LA_COUNTY_PATTERNS = [
 
 DISQUALIFIED_TITLE_PATTERNS = [
     r"\b(facilities|property\s+manager|data\s+center|practice\s+manager|office\s+manager)\b",
-    r"\b(assistant|secretary|floater|coordinator|clerk|paralegal|billing|administrator|manager,\s+recruiting)\b",
+    r"\b(floater|billing|administrator|manager,\s+recruiting)\b",
     r"\b(tax\s+manager|sales\s+director|account\s+executive|product\s+manager)\b",
     r"\b(software\s+engineer|devops|data\s+scientist|security\s+engineer|systems\s+engineer)\b",
-    r"\b(principal|managing\s+director|senior\s+director|senior\s+manager|senior\s+compliance|senior\s+counsel|sr\.?\s*counsel|sr\.?\s*attorney|lead|head\s+of|general\s+counsel|chief\s+legal|partner)\b",
+    r"\b(driver|photographer|producer|editor|audio|camera|janitor|maintenance)\b",
     # Pure Litigation Roles Disqualification
     r"\b(litigation\s+associate|litigation\s+attorney|litigation\s+counsel|trial\s+attorney|defense\s+attorney|civil\s+litigation\s+associate)\b",
     r"\b(personal\s+injury|lemon\s+law|insurance\s+defense|workers\s+comp|workers'\s+comp|wage\s+and\s+hour|class\s+action\s+associate)\b",
@@ -42,7 +42,7 @@ DISQUALIFIED_TITLE_PATTERNS = [
 def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]:
     """
     Score a job posting by first enforcing hard criteria gates, then applying
-    personalized candidate resume matching (Harrison Wheeler).
+    personalized candidate resume matching (Harrison Wheeler) with graded tiers (20% - 100%).
 
     Returns:
         (score, reasons, is_qualified)
@@ -105,7 +105,7 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         job.match_reasons = ["🚫 Office requirement is based outside California (e.g. New York HQ / Bristol CT)"]
         return 0, job.match_reasons, False
 
-    # Check for explicit Out-of-State Bar only (e.g. Must be licensed in NY State Bar without CA)
+    # Check for explicit Out-of-State Bar only
     has_ny_bar_only = bool(re.search(r"\b(practice\s+law\s+in\s+new\s+york\s+state|licensed\s+in\s+new\s+york\s+state|new\s+york\s+state\s+bar\s+required|admission\s+to\s+connecticut\s+state\s+bar\s+or\s+new\s+york\s+state\s+bar)\b", combined_lower))
     allows_ca_or_any = bool(re.search(r"\b(california|ca\s+bar|any\s+(?:u\.?s\.?\s+)?state\s+bar|at\s+least\s+one\s+(?:u\.?s\.?\s+)?(?:state\s+)?bar|other\s+(?:u\.?s\.?\s+)?state\s+bar|another\s+(?:u\.?s\.?\s+)?state\s+bar|in-house\s+counsel\s+registration|or\s+california|or\s+other\b)\b", combined_lower))
 
@@ -115,11 +115,8 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         return 0, job.match_reasons, False
 
     # -------------------------------------------------------------
-    # 3. HARD TITLE & ROLE GATE (Includes Pure Litigation Filter)
+    # 3. PURE LITIGATION DISQUALIFICATION
     # -------------------------------------------------------------
-    has_junior_title = bool(
-        re.search(r"\b(associate\s+counsel|associate\s+corporate|associate\s+commercial|corporate\s+associate|m&a\s+associate|technology\s+associate|associate\s*[-–—]\s*ai|ai\s+associate|junior|assistant\s+counsel|associate\s+director)\b", title_lower)
-    )
     is_pure_litigation = any(re.search(pat, title_lower, re.IGNORECASE) for pat in [
         r"\b(litigation\s+associate|litigation\s+attorney|litigation\s+counsel|trial\s+attorney|defense\s+attorney|civil\s+litigation)\b",
         r"\b(personal\s+injury|lemon\s+law|insurance\s+defense|workers\s+comp|wage\s+and\s+hour|class\s+action)\b",
@@ -130,36 +127,17 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         job.match_reasons = [f"🚫 Pure litigation role excluded: '{job.title}' (Focus: In-House, Tech/AI, Corporate & Entertainment)"]
         return 0, job.match_reasons, False
 
-    if any(re.search(pat, title_lower, re.IGNORECASE) for pat in DISQUALIFIED_TITLE_PATTERNS) and not has_junior_title:
+    if any(re.search(pat, title_lower, re.IGNORECASE) for pat in DISQUALIFIED_TITLE_PATTERNS):
         job.match_score = 0
         job.match_reasons = [f"🚫 Disqualified role/title: '{job.title}'"]
         return 0, job.match_reasons, False
 
-    # -------------------------------------------------------------
-    # 4. HARD JD & BAR REQUIREMENT GATE
-    # -------------------------------------------------------------
-    has_jd, is_jd_req, jd_notes = detect_jd_requirement(job.description, job.title)
-    job.jd_required = is_jd_req
-    job.jd_notes = jd_notes
-
-    if not is_jd_req:
+    # Check legal relevance
+    is_legal_title = bool(re.search(r"\b(legal|counsel|attorney|lawyer|contracts|licensing|business\s+affairs|legal\s+ops|legal\s+innovation|intellectual\s+property|ip\s+counsel|paralegal)\b", title_lower))
+    is_legal_desc = bool(re.search(r"\b(juris\s+doctor|jd\b|state\s+bar|california\s+bar|contracts|licensing|intellectual\s+property|legal\s+department)\b", combined_lower))
+    if not (is_legal_title or is_legal_desc):
         job.match_score = 0
-        job.match_reasons = [f"🚫 JD / CA Bar not required ({jd_notes})"]
-        return 0, job.match_reasons, False
-
-    # -------------------------------------------------------------
-    # 5. HARD EXPERIENCE GATE (Target 1-4 Years)
-    # -------------------------------------------------------------
-    exp_min, exp_max, exp_raw, is_exp_match, is_ideal, exp_reason = extract_experience(
-        job.description, job.title, min_target=config.filters.min_experience_years, max_target=config.filters.max_experience_years
-    )
-    job.exp_min = exp_min
-    job.exp_max = exp_max
-    job.exp_raw = exp_raw
-
-    if not is_exp_match:
-        job.match_score = 0
-        job.match_reasons = [f"🚫 {exp_reason}"]
+        job.match_reasons = ["🚫 Non-legal role"]
         return 0, job.match_reasons, False
 
     # Classify role
@@ -167,8 +145,71 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
     job.category = cat
     job.is_legal_ai = is_ai
 
+    # JD & Bar Requirement check
+    has_jd, is_jd_req, jd_notes = detect_jd_requirement(job.description, job.title)
+    job.jd_required = is_jd_req
+    job.jd_notes = jd_notes
+
+    # Experience check
+    exp_min, exp_max, exp_raw, is_exp_match, is_ideal, exp_reason = extract_experience(
+        job.description, job.title, min_target=config.filters.min_experience_years, max_target=config.filters.max_experience_years
+    )
+    job.exp_min = exp_min
+    job.exp_max = exp_max
+    job.exp_raw = exp_raw
+
     # -------------------------------------------------------------
-    # 6. RESUME-TAILORED MULTI-DIMENSIONAL SCORER
+    # GRADED MATCHING TIERS (20% to 100%)
     # -------------------------------------------------------------
-    total_score, match_reasons, is_qualified = match_candidate_to_job(job)
-    return total_score, match_reasons, is_qualified
+
+    # TIER 1: Prime & Reach Target JD Roles (75% - 100%)
+    if is_jd_req and is_exp_match:
+        total_score, match_reasons, is_qualified = match_candidate_to_job(job)
+        job.match_score = total_score
+        job.match_reasons = match_reasons
+        return total_score, match_reasons, is_qualified
+
+    # TIER 2: Senior / Stretch Legal Roles in LA (55% - 74%)
+    if is_jd_req and (exp_min or 0) >= 5:
+        score = 55
+        if "counsel" in title_lower or "business affairs" in title_lower or "corporate" in title_lower:
+            score += 10
+        if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "warner", "fox", "netflix"]):
+            score += 5
+        job.match_score = score
+        job.match_reasons = [
+            "⭐ Senior / Stretch Legal Opportunity in LA",
+            f"📋 {exp_reason}",
+            "🎓 JD / CA Bar Required",
+        ]
+        return score, job.match_reasons, True
+
+    # TIER 3: Legal Operations, AI Enablement & Contracts Specialist (35% - 54%)
+    if any(k in title_lower for k in ["legal ops", "legal innovation", "contracts", "compliance", "privacy", "operations"]):
+        score = 40
+        if is_ai:
+            score += 12
+        if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "netflix", "riot"]):
+            score += 5
+        job.match_score = score
+        job.match_reasons = [
+            "🛠️ Legal Operations / Contracts / AI Enablement",
+            "🏢 Entertainment / Corporate Legal Department in LA",
+        ]
+        return score, job.match_reasons, True
+
+    # TIER 4: Legal Support, Rights Management & Licensing (20% - 34%)
+    if any(k in title_lower for k in ["paralegal", "coordinator", "licensing", "rights", "analyst"]):
+        score = 25
+        if "intellectual property" in title_lower or "licensing" in title_lower:
+            score += 5
+        job.match_score = score
+        job.match_reasons = [
+            "📌 Legal Support / Licensing / Rights Management in LA",
+        ]
+        return score, job.match_reasons, True
+
+    # Fallback for unclassified legal roles
+    job.match_score = 20
+    job.match_reasons = ["📌 Legal-Adjacent Opportunity in Los Angeles"]
+    return 20, job.match_reasons, True
