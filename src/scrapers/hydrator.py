@@ -1,0 +1,185 @@
+"""Automated description, metadata, and posting date hydrator for job postings."""
+
+import concurrent.futures
+from datetime import datetime, timedelta
+import logging
+import re
+from typing import List, Optional, Tuple
+import requests
+from bs4 import BeautifulSoup
+from src.scrapers.base import JobPosting, clean_html_text
+from src.engine.salary_parser import extract_salary
+
+logger = logging.getLogger(__name__)
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def parse_relative_time_to_age(time_str: str) -> Tuple[str, int]:
+    """
+    Parse relative time string (e.g. '3 months ago', '1 week ago', '10 hours ago')
+    into (age_display, diff_days).
+    """
+    if not time_str:
+        return "🔥 Today", 0
+
+    s = time_str.lower().strip()
+
+    # Months / Years
+    m_match = re.search(r"(\d+)\s+month", s)
+    if m_match:
+        months = int(m_match.group(1))
+        days = months * 30
+        return f"🕒 {months}mo ago", days
+
+    y_match = re.search(r"(\d+)\s+year", s)
+    if y_match:
+        years = int(y_match.group(1))
+        days = years * 365
+        return f"🕒 {years}y ago", days
+
+    # Weeks
+    w_match = re.search(r"(\d+)\s+week", s)
+    if w_match:
+        weeks = int(w_match.group(1))
+        days = weeks * 7
+        return f"🕒 {weeks}w ago", days
+
+    # Days
+    d_match = re.search(r"(\d+)\s+day", s)
+    if d_match:
+        days = int(d_match.group(1))
+        if days <= 0:
+            return "🔥 Today", 0
+        elif days == 1:
+            return "🕒 1d ago", 1
+        else:
+            return f"🕒 {days}d ago", days
+
+    # Hours / Minutes / Just Now / Today
+    if any(k in s for k in ["hour", "minute", "moment", "just now", "today", "sec"]):
+        return "🔥 Today", 0
+
+    # ISO or YYYY-MM-DD Date
+    try:
+        if "t" in s:
+            d = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+            now = datetime.now(d.tzinfo) if d.tzinfo else datetime.now()
+        else:
+            d = datetime.strptime(time_str[:10], "%Y-%m-%d")
+            now = datetime.now()
+
+        diff_days = (now - d).days
+        if diff_days <= 0:
+            return "🔥 Today", 0
+        elif diff_days == 1:
+            return "🕒 1d ago", 1
+        elif diff_days < 7:
+            return f"🕒 {diff_days}d ago", diff_days
+        elif diff_days < 14:
+            return "🕒 1w ago", diff_days
+        elif diff_days < 21:
+            return "🕒 2w ago", diff_days
+        elif diff_days <= 30:
+            return f"🕒 {diff_days // 7}w ago", diff_days
+        else:
+            return f"🕒 {diff_days // 30}mo ago", diff_days
+    except Exception:
+        pass
+
+    return "🔥 Today", 0
+
+
+def fetch_full_job_details(url: str) -> Tuple[Optional[str], Optional[str]]:
+    """Fetch description text and exact posted date metadata from public page."""
+    if not url or url == "nan":
+        return None, None
+
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=8)
+        if resp.status_code != 200:
+            return None, None
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # 1. Extract exact posting date / relative time
+        posted_time = None
+        time_el = soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")}) or soup.find("time")
+        if time_el:
+            posted_time = time_el.get_text().strip()
+
+        # 2. Extract description
+        desc = None
+        desc_el = soup.find("div", {"class": re.compile(r"show-more-less-html__markup|description__text|details-pane__content")})
+        if desc_el:
+            desc = clean_html_text(desc_el.get_text(separator="\n"))
+        else:
+            content_el = soup.find("div", {"id": "content"}) or soup.find("div", {"class": "body"})
+            if content_el:
+                desc = clean_html_text(content_el.get_text(separator="\n"))
+            else:
+                main_el = soup.find("article") or soup.find("main") or soup.find("div", {"class": re.compile(r"job-description|job_description|description")})
+                if main_el:
+                    desc = clean_html_text(main_el.get_text(separator="\n"))
+
+        return desc, posted_time
+
+    except Exception as e:
+        logger.debug(f"Error hydrating URL {url}: {e}")
+
+    return None, None
+
+
+def hydrate_job(job: JobPosting) -> bool:
+    """Hydrate a single job posting with complete description, salary, and exact posting age."""
+    desc, posted_time = fetch_full_job_details(job.job_url)
+
+    updated = False
+    if posted_time:
+        job.date_posted = posted_time
+        age_disp, _ = parse_relative_time_to_age(posted_time)
+        job.age_display = age_disp
+        updated = True
+
+    if desc and len(desc) >= 100:
+        job.description = desc
+        clean_snippet = re.sub(r"\s+", " ", desc).strip()
+        job.description_snippet = clean_snippet[:280] + ("..." if len(clean_snippet) > 280 else "")
+
+        if not job.salary_display:
+            sal_min, sal_max, sal_int, sal_disp = extract_salary(desc)
+            if sal_disp:
+                job.salary_min = sal_min
+                job.salary_max = sal_max
+                job.salary_interval = sal_int
+                job.salary_display = sal_disp
+
+        updated = True
+
+    return updated
+
+
+def hydrate_jobs(jobs: List[JobPosting], max_workers: int = 8) -> int:
+    """Hydrate multiple jobs in parallel."""
+    if not jobs:
+        return 0
+
+    logger.info(f"Hydrating {len(jobs)} jobs in parallel...")
+    hydrated_count = 0
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_job = {executor.submit(hydrate_job, j): j for j in jobs}
+        for future in concurrent.futures.as_completed(future_to_job):
+            try:
+                success = future.result()
+                if success:
+                    hydrated_count += 1
+            except Exception as e:
+                logger.debug(f"Hydration thread error: {e}")
+
+    logger.info(f"Successfully hydrated {hydrated_count} jobs.")
+    return hydrated_count

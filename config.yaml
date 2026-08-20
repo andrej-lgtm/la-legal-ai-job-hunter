@@ -1,0 +1,64 @@
+search:
+  queries:
+    - "Legal Engineer"
+    - "Legal AI"
+    - "AI Associate"
+    - "Associate - AI"
+    - "AI Counsel"
+    - "AI Attorney"
+    - "Associate Counsel"
+    - "In House Counsel"
+    - "Corporate Counsel"
+    - "Commercial Counsel"
+    - "Corporate Associate"
+    - "Corporate Attorney"
+    - "M&A Associate"
+    - "Business & Legal Affairs"
+    - "Business Affairs"
+    - "Technology Associate"
+  locations:
+    - "Los Angeles, CA"
+  distance_miles: 35
+  results_per_query: 40
+  hours_old: 720  # 30-day active window
+
+filters:
+  require_jd: true
+  min_experience_years: 1
+  max_experience_years: 4
+  exclude_keywords:
+    - "Senior Counsel"
+    - "Sr. Counsel"
+    - "Senior Attorney"
+    - "Sr. Attorney"
+    - "General Counsel"
+    - "Chief Legal Officer"
+    - "Partner"
+    - "Litigation Associate"
+    - "Litigation Attorney"
+    - "Personal Injury"
+    - "Lemon Law"
+    - "Insurance Defense"
+    - "Wage and Hour"
+    - "Trial Attorney"
+
+notifications:
+  discord:
+    enabled: false
+    webhook_url: ""
+  slack:
+    enabled: false
+    webhook_url: ""
+  email:
+    enabled: false
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    user: ""
+    password: ""
+    recipient: ""
+  digest:
+    enabled: true
+    output_dir: "data/digests"
+
+database:
+  path: "data/jobs.db"

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LA Legal & AI Job Hunter • Harrison Wheeler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased" x-data="jobApp()">
+    
+    <!-- Top Navigation Bar -->
+    <nav class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">⚖️</span>
+                <div>
+                    <span class="font-bold text-white tracking-tight text-lg">LA Legal & AI Job Hunter</span>
+                    <span class="text-xs ml-2 px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-800 font-semibold">Resume-Tailored Engine</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button @click="triggerScrape()" :disabled="isScraping" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-lg transition">
+                    <span x-show="!isScraping">🔄 Run Scraper</span>
+                    <span x-show="isScraping">⏳ Scraping Live Feeds...</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- Candidate Profile Hero Card -->
+        <div class="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-900/50 rounded-2xl p-5 mb-8 shadow-xl">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="w-14 h-14 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-2xl font-black text-indigo-300 shadow-inner">
+                        HW
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-xl font-black text-white tracking-tight">Harrison Wheeler</h1>
+                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-950 text-emerald-300 border border-emerald-700">CA Bar Admitted (2023)</span>
+                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-950 text-purple-300 border border-purple-700">Harvey Legal Engineer Certified</span>
+                        </div>
+                        <p class="text-xs text-slate-300 mt-1 font-medium">
+                            <span class="text-indigo-300 font-semibold">Focus:</span> AI & Emerging Tech • Entertainment & In-House Legal • Corporate Transactions | <span class="text-slate-400">LMU Loyola Law School JD ('23) • USC ('18) • Los Angeles, CA (90038)</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs">
+                    <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">🏢 MGM / NBCU / AEG Alumni</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">🤖 Prompt & Workflow Engineering</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-300">📜 Contract Drafting & Licensing</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Summary -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs uppercase font-semibold text-slate-400">Total Tracked</div>
+                <div class="text-2xl font-black text-white mt-1" x-text="stats.total_jobs || 0">0</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs uppercase font-semibold text-slate-400">Resume Verified Matches</div>
+                <div class="text-2xl font-black text-indigo-400 mt-1" x-text="stats.qualified_jobs || 0">0</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs uppercase font-semibold text-slate-400">Saved Roles</div>
+                <div class="text-2xl font-black text-amber-400 mt-1" x-text="stats.saved_jobs || 0">0</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-xs uppercase font-semibold text-slate-400">Applied</div>
+                <div class="text-2xl font-black text-emerald-400 mt-1" x-text="stats.applied_jobs || 0">0</div>
+            </div>
+        </div>
+
+        <!-- Filter & Sorting Controls Bar -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 mb-6 space-y-4 shadow-sm">
+            <!-- Row 1: Search, Status, and Category Filter Buttons -->
+            <div class="flex flex-col md:flex-row gap-4 justify-between items-center">
+                <!-- Search Input -->
+                <div class="w-full md:w-80">
+                    <input type="text" x-model="searchQuery" @input="fetchJobs()" placeholder="Search title, company, or skill..." 
+                           class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- Dynamic Category Filter Pills (Only visible when count > 0) -->
+                <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                    <button @click="setCategory('')" :class="selectedCategory === '' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5">
+                        <span>All</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-indigo-300 font-bold" x-text="allAvailableJobs.length"></span>
+                    </button>
+
+                    <template x-for="cat in activeCategories" :key="cat.key">
+                        <button @click="setCategory(cat.key)" :class="selectedCategory === cat.key ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition inline-flex items-center gap-1.5">
+                            <span x-text="cat.label"></span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950 text-indigo-300 font-bold" x-text="cat.count"></span>
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Status Tabs -->
+                <div class="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                    <button @click="setStatus('')" :class="selectedStatus === '' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3.5 py-1 text-xs font-semibold rounded transition">Active</button>
+                    <button @click="setStatus('saved')" :class="selectedStatus === 'saved' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3.5 py-1 text-xs font-semibold rounded transition">Saved</button>
+                    <button @click="setStatus('applied')" :class="selectedStatus === 'applied' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'" class="px-3.5 py-1 text-xs font-semibold rounded transition">Applied</button>
+                </div>
+            </div>
+
+            <!-- Row 2: Sort By Controls (MATCH, PAY, Date, Distance) -->
+            <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-bold text-slate-400 uppercase tracking-wider text-[11px] flex items-center gap-1">
+                        <span>⚡ Sort By:</span>
+                    </span>
+
+                    <!-- Sort Pill: MATCH -->
+                    <button @click="setSort('match')" 
+                            :class="sortBy === 'match' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                        <span>🎯 Match Score</span>
+                        <span x-show="sortBy === 'match'">▼</span>
+                    </button>
+
+                    <!-- Sort Pill: PAY -->
+                    <button @click="setSort('pay')" 
+                            :class="sortBy === 'pay' ? 'bg-emerald-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                        <span>💵 Pay / Salary</span>
+                        <span x-show="sortBy === 'pay'">▼</span>
+                    </button>
+
+                    <!-- Sort Pill: Date -->
+                    <button @click="setSort('date')" 
+                            :class="sortBy === 'date' ? 'bg-amber-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                        <span>🕒 Posting Date (Newest)</span>
+                        <span x-show="sortBy === 'date'">▼</span>
+                    </button>
+
+                    <!-- Sort Pill: Distance from 90038 (Hollywood) -->
+                    <button @click="setSort('distance')" 
+                            :class="sortBy === 'distance' ? 'bg-purple-600 text-white shadow-md font-bold' : 'bg-slate-950 text-slate-300 hover:bg-slate-800 border border-slate-800 font-medium'" 
+                            class="px-3 py-1.5 rounded-lg transition inline-flex items-center gap-1.5">
+                        <span>📍 Distance (Closest)</span>
+                        <span x-show="sortBy === 'distance'">▲</span>
+                    </button>
+                </div>
+
+                <div class="text-slate-400 text-xs font-semibold">
+                    <span>📍 Centered at 90038 (Hollywood, Los Angeles)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Cards List -->
+        <div class="space-y-4">
+            <template x-if="loading">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center text-slate-400">
+                    Evaluating live matches against Harrison Wheeler's resume...
+                </div>
+            </template>
+
+            <template x-if="!loading && sortedJobs.length === 0">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center">
+                    <p class="text-slate-400 text-base">No job matches found for current filters.</p>
+                    <button @click="triggerScrape()" class="mt-4 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-lg">Run Scraper Now</button>
+                </div>
+            </template>
+
+            <template x-for="job in sortedJobs" :key="job.id">
+                <div class="bg-slate-900/90 border border-slate-800 hover:border-indigo-800/60 transition rounded-xl p-6 shadow-xl">
+                    <div class="flex flex-col md:flex-row gap-5 justify-between items-start">
+                        <div class="flex-1 w-full">
+                            <!-- Category, Location, Distance, Salary, and Age Badges -->
+                            <div class="flex flex-wrap items-center gap-2 mb-2.5">
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950 text-indigo-300 border border-indigo-800" x-text="getCategoryLabel(job.category)"></span>
+                                
+                                <template x-if="job.is_legal_ai && job.category !== 'Legal AI'">
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-950 text-purple-300 border border-purple-800">✨ AI Practice</span>
+                                </template>
+
+                                <!-- Location & Proximity Distance Badge from 90038 -->
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium text-slate-300 bg-slate-950 border border-slate-800 inline-flex items-center gap-1">
+                                    <span>📍</span>
+                                    <span x-text="job.location"></span>
+                                    <template x-if="calculateDistance(job.location) !== null">
+                                        <span class="text-purple-300 font-bold ml-1" x-text="'(' + calculateDistance(job.location) + ' mi)'"></span>
+                                    </template>
+                                </span>
+
+                                <!-- Salary Range Badge -->
+                                <template x-if="job.salary_display">
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-700 shadow-sm" x-text="job.salary_display"></span>
+                                </template>
+
+                                <!-- Age / Recency Pill -->
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold border shadow-sm"
+                                      :class="(job.age_display && job.age_display.includes('Today')) ? 'bg-amber-950/80 text-amber-300 border-amber-700' : 'bg-slate-950 text-slate-300 border-slate-800'"
+                                      x-text="job.age_display || formatAge(job.date_posted, job.date_discovered)">
+                                </span>
+
+                                <template x-if="job.status !== 'new'">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-emerald-950 text-emerald-300 border border-emerald-800" x-text="job.status"></span>
+                                </template>
+                            </div>
+
+                            <!-- Job Title & Company -->
+                            <h3 class="text-xl font-bold text-white hover:text-indigo-300 transition">
+                                <a :href="job.job_url" target="_blank" rel="noopener noreferrer" x-text="job.title"></a>
+                            </h3>
+                            <div class="text-sm font-semibold text-slate-300 mt-1">
+                                <span class="text-slate-200" x-text="job.company"></span>
+                                <span class="text-slate-600 font-normal mx-1">•</span>
+                                <span class="text-slate-400 font-normal text-xs uppercase" x-text="'via ' + job.source"></span>
+                            </div>
+
+                            <!-- Personalized Match Reasons Tailored to Harrison -->
+                            <div class="flex flex-wrap gap-1.5 mt-3">
+                                <template x-for="reason in job.match_reasons" :key="reason">
+                                    <span class="px-2.5 py-1 rounded-md bg-slate-950 text-indigo-200 border border-indigo-900/40 text-xs font-medium" x-text="reason"></span>
+                                </template>
+                            </div>
+
+                            <!-- Short Snippet View (When Collapsed) -->
+                            <div x-show="!expandedJobs[job.id]" class="mt-3.5 text-slate-400 text-sm leading-relaxed">
+                                <span x-text="cleanSnippet(job.description_snippet || job.description)"></span>
+                                <button @click="toggleExpand(job.id)" class="text-indigo-400 hover:text-indigo-300 font-semibold ml-2 inline-flex items-center text-xs underline cursor-pointer">
+                                    Show full description ▾
+                                </button>
+                            </div>
+
+                            <!-- Full Description View (When Expanded) -->
+                            <div x-show="expandedJobs[job.id]" class="mt-4 p-5 bg-slate-950 rounded-xl border border-indigo-900/40 text-slate-300 text-sm leading-relaxed shadow-inner">
+                                <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3.5">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm">📄</span>
+                                        <span class="font-bold text-indigo-300 uppercase tracking-wider text-xs">Full Job Description & Requirements</span>
+                                    </div>
+                                    <button @click="toggleExpand(job.id)" class="text-slate-400 hover:text-white text-xs font-semibold px-2.5 py-1 rounded bg-slate-900 border border-slate-700 cursor-pointer">
+                                        Collapse ▴
+                                    </button>
+                                </div>
+                                <div class="whitespace-pre-line text-slate-300 max-h-[550px] overflow-y-auto pr-2 custom-scrollbar select-text text-sm leading-relaxed" x-text="cleanDescription(job.description)"></div>
+                                
+                                <div class="mt-4 pt-3.5 border-t border-slate-800 flex flex-wrap justify-between items-center gap-3">
+                                    <span class="text-slate-400 text-xs font-medium">Ready to apply? This link directs to the official employer posting.</span>
+                                    <a :href="job.job_url" target="_blank" rel="noopener noreferrer" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-md transition inline-flex items-center gap-1.5">
+                                        Apply on Official Site &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column: Match Score & Action Buttons -->
+                        <div class="flex md:flex-col items-center md:items-end justify-between gap-3 shrink-0 self-start">
+                            <div class="flex flex-col items-center justify-center w-16 h-16 rounded-xl bg-indigo-950/90 border border-indigo-500/50 text-center shadow-lg">
+                                <span class="text-xl font-black text-indigo-300" x-text="job.match_score"></span>
+                                <span class="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">MATCH</span>
+                            </div>
+
+                            <div class="flex items-center gap-2 mt-1">
+                                <!-- Direct Apply Button -->
+                                <a :href="job.job_url" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow transition">
+                                    Apply &rarr;
+                                </a>
+
+                                <!-- Save Button -->
+                                <button @click="updateStatus(job.id, job.status === 'saved' ? 'new' : 'saved')" :class="job.status === 'saved' ? 'text-amber-400 bg-amber-950/60 border-amber-700' : 'text-slate-400 bg-slate-800 hover:text-white border-slate-700'" class="p-2 rounded-lg border text-xs transition" title="Save Job">
+                                    ⭐
+                                </button>
+                                <!-- Applied Button -->
+                                <button @click="updateStatus(job.id, job.status === 'applied' ? 'new' : 'applied')" :class="job.status === 'applied' ? 'text-emerald-400 bg-emerald-950/60 border-emerald-700' : 'text-slate-400 bg-slate-800 hover:text-white border-slate-700'" class="p-2 rounded-lg border text-xs transition" title="Mark Applied">
+                                    ✅
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        // Central Anchor: 90038 (Hollywood, Los Angeles)
+        const BASE_COORDINATES = { lat: 34.0888, lon: -118.3308 };
+
+        const LA_COORDINATES = {
+            'hollywood': { lat: 34.0928, lon: -118.3287, name: 'Hollywood' },
+            'universal city': { lat: 34.1390, lon: -118.3534, name: 'Universal City' },
+            'studio city': { lat: 34.1390, lon: -118.3871, name: 'Studio City' },
+            'beverly hills': { lat: 34.0736, lon: -118.4004, name: 'Beverly Hills' },
+            'beverly': { lat: 34.0736, lon: -118.4004, name: 'Beverly Hills' },
+            'century city': { lat: 34.0537, lon: -118.4180, name: 'Century City' },
+            'downtown los angeles': { lat: 34.0407, lon: -118.2468, name: 'DTLA' },
+            'dtla': { lat: 34.0407, lon: -118.2468, name: 'DTLA' },
+            'los angeles': { lat: 34.0522, lon: -118.2437, name: 'Downtown LA' },
+            'culver city': { lat: 34.0211, lon: -118.3965, name: 'Culver City' },
+            'culver': { lat: 34.0211, lon: -118.3965, name: 'Culver City' },
+            'burbank': { lat: 34.1808, lon: -118.3090, name: 'Burbank' },
+            'westwood': { lat: 34.0635, lon: -118.4455, name: 'Westwood' },
+            'west hollywood': { lat: 34.0900, lon: -118.3617, name: 'West Hollywood' },
+            'santa monica': { lat: 34.0195, lon: -118.4912, name: 'Santa Monica' },
+            'commerce': { lat: 34.0006, lon: -118.1598, name: 'Commerce' },
+            'hawthorne': { lat: 33.9164, lon: -118.3526, name: 'Hawthorne' },
+            'el segundo': { lat: 33.9192, lon: -118.4165, name: 'El Segundo' },
+            'torrance': { lat: 33.8358, lon: -118.3406, name: 'Torrance' },
+            'pasadena': { lat: 34.1478, lon: -118.1445, name: 'Pasadena' },
+            'glendale': { lat: 34.1425, lon: -118.2551, name: 'Glendale' },
+            'woodland hills': { lat: 34.1684, lon: -118.6059, name: 'Woodland Hills' },
+            'calabasas': { lat: 34.1578, lon: -118.6384, name: 'Calabasas' },
+            'playa vista': { lat: 33.9749, lon: -118.4258, name: 'Playa Vista' },
+            'marina del rey': { lat: 33.9803, lon: -118.4517, name: 'Marina del Rey' },
+            'long beach': { lat: 33.7701, lon: -118.1937, name: 'Long Beach' },
+            'valencia': { lat: 34.4144, lon: -118.5587, name: 'Valencia' },
+            'santa clarita': { lat: 34.3917, lon: -118.5426, name: 'Santa Clarita' },
+            'encino': { lat: 34.1517, lon: -118.5214, name: 'Encino' },
+            'sherman oaks': { lat: 34.1508, lon: -118.4489, name: 'Sherman Oaks' },
+        };
+
+        function haversineMiles(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // Earth radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return Math.round(R * c * 10) / 10;
+        }
+
+        function jobApp() {
+            return {
+                jobs: [],
+                allAvailableJobs: [],
+                stats: {},
+                loading: true,
+                isScraping: false,
+                searchQuery: '',
+                selectedCategory: '',
+                selectedStatus: '',
+                sortBy: 'match', // 'match', 'pay', 'date', 'distance'
+                expandedJobs: {},
+
+                categoryMeta: {
+                    'In-House Counsel': { label: '🎬 In-House / Studio' },
+                    'Associate Counsel': { label: '⚖️ Corporate Associate' },
+                    'Legal AI': { label: '🤖 Legal AI' },
+                    'Legal Engineer': { label: '🛠️ Legal Engineer' },
+                },
+
+                async init() {
+                    await this.fetchStats();
+                    await this.fetchJobs();
+                },
+
+                setSort(sortKey) {
+                    this.sortBy = sortKey;
+                },
+
+                resolveJobCoords(location) {
+                    if (!location) return LA_COORDINATES['los angeles'];
+                    const loc = location.toLowerCase();
+                    for (const [key, coords] of Object.entries(LA_COORDINATES)) {
+                        if (loc.includes(key)) {
+                            return coords;
+                        }
+                    }
+                    return LA_COORDINATES['los angeles'];
+                },
+
+                calculateDistance(location) {
+                    const dest = this.resolveJobCoords(location);
+                    if (!dest) return null;
+                    return haversineMiles(BASE_COORDINATES.lat, BASE_COORDINATES.lon, dest.lat, dest.lon);
+                },
+
+                getNumericPay(job) {
+                    if (job.salary_max) {
+                        return job.salary_interval === 'hourly' ? job.salary_max * 2080 : job.salary_max;
+                    }
+                    if (job.salary_min) {
+                        return job.salary_interval === 'hourly' ? job.salary_min * 2080 : job.salary_min;
+                    }
+                    return 0;
+                },
+
+                getNumericAgeDays(job) {
+                    let dStr = job.date_posted || job.date_discovered;
+                    if (!dStr) return 0;
+                    let s = dStr.toLowerCase();
+                    if (s.includes('today') || s.includes('hour') || s.includes('just now')) return 0;
+                    let dM = s.match(/(\d+)\s*d/);
+                    if (dM) return parseInt(dM[1]);
+                    let wM = s.match(/(\d+)\s*w/);
+                    if (wM) return parseInt(wM[1]) * 7;
+                    let mM = s.match(/(\d+)\s*mo/);
+                    if (mM) return parseInt(mM[1]) * 30;
+                    return 0;
+                },
+
+                get sortedJobs() {
+                    let list = [...this.jobs];
+                    if (this.sortBy === 'match') {
+                        list.sort((a, b) => b.match_score - a.match_score);
+                    } else if (this.sortBy === 'pay') {
+                        list.sort((a, b) => this.getNumericPay(b) - this.getNumericPay(a));
+                    } else if (this.sortBy === 'date') {
+                        list.sort((a, b) => this.getNumericAgeDays(a) - this.getNumericAgeDays(b));
+                    } else if (this.sortBy === 'distance') {
+                        list.sort((a, b) => {
+                            let distA = this.calculateDistance(a.location) || 999;
+                            let distB = this.calculateDistance(b.location) || 999;
+                            return distA - distB;
+                        });
+                    }
+                    return list;
+                },
+
+                get activeCategories() {
+                    const counts = {};
+                    this.allAvailableJobs.forEach(j => {
+                        const cat = j.category;
+                        if (cat) counts[cat] = (counts[cat] || 0) + 1;
+                    });
+
+                    return Object.keys(counts)
+                        .filter(cat => counts[cat] > 0)
+                        .map(cat => ({
+                            key: cat,
+                            label: this.categoryMeta[cat]?.label || cat,
+                            count: counts[cat]
+                        }))
+                        .sort((a, b) => b.count - a.count);
+                },
+
+                getCategoryLabel(cat) {
+                    return this.categoryMeta[cat]?.label || cat;
+                },
+
+                toggleExpand(id) {
+                    this.expandedJobs[id] = !this.expandedJobs[id];
+                },
+
+                formatAge(datePosted, dateDiscovered) {
+                    let dStr = datePosted || dateDiscovered;
+                    if (!dStr) return '🔥 Today';
+                    try {
+                        let posted = new Date(dStr.replace('Z', '+00:00'));
+                        if (isNaN(posted.getTime())) {
+                            let parts = dStr.split('T')[0].split('-');
+                            if (parts.length === 3) {
+                                posted = new Date(parts[0], parts[1] - 1, parts[2]);
+                            }
+                        }
+                        if (isNaN(posted.getTime())) return '🔥 Today';
+                        let diffDays = Math.floor((new Date() - posted) / (1000 * 60 * 60 * 24));
+                        if (diffDays <= 0) return '🔥 Today';
+                        if (diffDays === 1) return '🕒 1d ago';
+                        if (diffDays < 7) return `🕒 ${diffDays}d ago`;
+                        if (diffDays < 14) return '🕒 1w ago';
+                        if (diffDays < 21) return '🕒 2w ago';
+                        if (diffDays <= 30) return `🕒 ${Math.floor(diffDays / 7)}w ago`;
+                        return '🕒 >30d ago';
+                    } catch (e) {
+                        return '🔥 Today';
+                    }
+                },
+
+                cleanSnippet(text) {
+                    if (!text) return '';
+                    let clean = text.replace(/â€¢/g, '• ')
+                                    .replace(/â€™/g, "'")
+                                    .replace(/â€˜/g, "'")
+                                    .replace(/â€œ/g, '"')
+                                    .replace(/â€ /g, '"')
+                                    .replace(/â€“/g, '–')
+                                    .replace(/â€”/g, '—')
+                                    .replace(/Â/g, '')
+                                    .replace(/📌/g, '')
+                                    .replace(/<[^>]+>/g, '')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                    return clean;
+                },
+
+                cleanDescription(text) {
+                    if (!text) return 'No full description available.';
+                    let clean = text.replace(/â€¢/g, '• ')
+                                    .replace(/â€™/g, "'")
+                                    .replace(/â€˜/g, "'")
+                                    .replace(/â€œ/g, '"')
+                                    .replace(/â€ /g, '"')
+                                    .replace(/â€“/g, '–')
+                                    .replace(/â€”/g, '—')
+                                    .replace(/Â/g, '')
+                                    .replace(/<[^>]+>/g, '')
+                                    .trim();
+                    return clean;
+                },
+
+                async fetchJobs() {
+                    this.loading = true;
+                    try {
+                        let url = `/api/jobs?limit=100`;
+                        if (this.selectedCategory) url += `&category=${encodeURIComponent(this.selectedCategory)}`;
+                        if (this.selectedStatus) url += `&status=${encodeURIComponent(this.selectedStatus)}`;
+                        if (this.searchQuery) url += `&search=${encodeURIComponent(this.searchQuery)}`;
+
+                        const res = await fetch(url);
+                        this.jobs = await res.json();
+
+                        if (!this.selectedCategory && !this.searchQuery && !this.selectedStatus) {
+                            this.allAvailableJobs = this.jobs;
+                        } else if (this.allAvailableJobs.length === 0) {
+                            const allRes = await fetch(`/api/jobs?limit=100`);
+                            this.allAvailableJobs = await allRes.json();
+                        }
+                    } catch (e) {
+                        console.error("Error fetching jobs:", e);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async fetchStats() {
+                    try {
+                        const res = await fetch('/api/stats');
+                        this.stats = await res.json();
+                    } catch (e) {
+                        console.error("Error fetching stats:", e);
+                    }
+                },
+
+                setCategory(cat) {
+                    this.selectedCategory = cat;
+                    this.fetchJobs();
+                },
+
+                setStatus(st) {
+                    this.selectedStatus = st;
+                    this.fetchJobs();
+                },
+
+                async updateStatus(jobId, status) {
+                    try {
+                        await fetch(`/api/jobs/${jobId}/status?status=${status}`, { method: 'POST' });
+                        await this.fetchStats();
+                        await this.fetchJobs();
+                    } catch (e) {
+                        console.error("Error updating status:", e);
+                    }
+                },
+
+                async triggerScrape() {
+                    this.isScraping = true;
+                    try {
+                        await fetch('/api/trigger-scrape', { method: 'POST' });
+                        await this.fetchStats();
+                        await this.fetchJobs();
+                    } catch (e) {
+                        console.error("Error running scrape:", e);
+                    } finally {
+                        this.isScraping = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
