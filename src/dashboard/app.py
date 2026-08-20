@@ -98,12 +98,15 @@ async def get_stats():
 async def trigger_scrape():
     """Trigger a manual scrape in the background and update database."""
     try:
+        from datetime import datetime
         aggregator = ScraperAggregator()
         postings = aggregator.fetch_all(config)
         for p in postings:
             score_job(p, config)
             db.save_job(p)
-        return {"status": "success", "new_jobs_found": len(postings)}
+        now_str = datetime.now().strftime("Today at %I:%M %p PST")
+        db.set_metadata("last_scraped_at", now_str)
+        return {"status": "success", "new_jobs_found": len(postings), "last_scraped_at": now_str}
     except Exception as e:
         logger.error(f"Manual scrape error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

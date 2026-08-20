@@ -58,7 +58,17 @@ class Database:
                     match_score INTEGER DEFAULT 0,
                     match_reasons TEXT,
                     status TEXT DEFAULT 'new',
-                    notes TEXT
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
                 )
                 """
             )
@@ -256,6 +266,24 @@ class Database:
             conn.commit()
             return cursor.rowcount > 0
 
+    def set_metadata(self, key: str, value: str) -> None:
+        """Store metadata key-value pair."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO metadata (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+            conn.commit()
+
+    def get_metadata(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Retrieve metadata value by key."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM metadata WHERE key = ?", (key,))
+            row = cursor.fetchone()
+            return row[0] if row else default
+
     def get_stats(self) -> Dict[str, Any]:
         """Get summary statistics for dashboard."""
         with self._get_connection() as conn:
@@ -278,6 +306,8 @@ class Database:
             cursor.execute("SELECT category, COUNT(*) FROM jobs WHERE match_score >= 80 AND (status IS NULL OR status != 'hidden') GROUP BY category")
             category_counts = dict(cursor.fetchall())
 
+            last_scraped = self.get_metadata("last_scraped_at", "Today at 5:00 PM PST")
+
             return {
                 "total_jobs": total_jobs,
                 "qualified_jobs": qualified_jobs,
@@ -285,6 +315,7 @@ class Database:
                 "saved_jobs": saved_jobs,
                 "hidden_jobs": hidden_jobs,
                 "category_counts": category_counts,
+                "last_scraped_at": last_scraped,
             }
 
     def _row_to_posting(self, row: sqlite3.Row) -> JobPosting:

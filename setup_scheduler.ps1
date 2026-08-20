@@ -1,33 +1,20 @@
-# PowerShell script to register daily Windows Task Scheduler job for Legal & AI Job Hunter
+# Setup Windows Task Scheduler for LA Legal & AI Job Hunter (Runs at 8:00 AM and 5:00 PM daily)
 
-$TaskName = "DailyLegalAIJobHunter"
-$PythonPath = (Get-Command python).Source
+$TaskName1 = "LALegalJobHunter_Morning"
+$TaskName2 = "LALegalJobHunter_Evening"
 $ScriptPath = "$PSScriptRoot\main.py"
-$WorkingDir = "$PSScriptRoot"
+$PythonPath = (Get-Command python).Source
 
-Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "  Registering Daily Legal & AI Job Hunter Task    " -ForegroundColor Cyan
-Write-Host "==================================================" -ForegroundColor Cyan
-
-# Check if Task already exists and remove if present
-$ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($ExistingTask) {
-    Write-Host "Removing existing task '$TaskName'..." -ForegroundColor Yellow
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-}
-
-# Action: run python main.py --run-now in working directory
-$Action = New-ScheduledTaskAction -Execute $PythonPath -Argument "main.py --run-now" -WorkingDirectory $WorkingDir
-
-# Trigger: Run daily at 8:00 AM
-$Trigger = New-ScheduledTaskTrigger -Daily -At "8:00 AM"
-
-# Settings: Allow wake to run, run missed executions
+Write-Host "Creating Task: $TaskName1 (8:00 AM PST)..." -ForegroundColor Cyan
+$Action1 = New-ScheduledTaskAction -Execute $PythonPath -Argument "`"$ScriptPath`" --daily" -WorkingDirectory $PSScriptRoot
+$Trigger1 = New-ScheduledTaskTrigger -Daily -At "8:00AM"
+$Principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
 $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+Register-ScheduledTask -TaskName $TaskName1 -Action $Action1 -Trigger $Trigger1 -Principal $Principal -Settings $Settings -Force
 
-# Register the Scheduled Task
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description "Daily Legal & AI Job Finder for Los Angeles Metro"
+Write-Host "Creating Task: $TaskName2 (5:00 PM PST)..." -ForegroundColor Cyan
+$Action2 = New-ScheduledTaskAction -Execute $PythonPath -Argument "`"$ScriptPath`" --daily" -WorkingDirectory $PSScriptRoot
+$Trigger2 = New-ScheduledTaskTrigger -Daily -At "5:00PM"
+Register-ScheduledTask -TaskName $TaskName2 -Action $Action2 -Trigger $Trigger2 -Principal $Principal -Settings $Settings -Force
 
-Write-Host "`nTask successfully created!" -ForegroundColor Green
-Write-Host "It will automatically run every day at 8:00 AM in the background." -ForegroundColor Green
-Write-Host "You can test run it anytime with: python main.py --run-now" -ForegroundColor White
+Write-Host "Scheduled tasks successfully registered for 8:00 AM and 5:00 PM PST daily." -ForegroundColor Green

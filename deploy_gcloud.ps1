@@ -25,17 +25,17 @@ gcloud run deploy $ProjectName `
 $ServiceUrl = (gcloud run services describe $ProjectName --region $Region --format "value(status.url)").Trim()
 Write-Host "✅ Deployed successfully to: $ServiceUrl" -ForegroundColor Green
 
-# 4. Create Daily Cloud Scheduler Job (Runs every morning at 8:00 AM PST)
-Write-Host "⏰ Creating daily Cloud Scheduler job (8:00 AM PST)..." -ForegroundColor Yellow
+# 4. Create Cloud Scheduler Job (Runs twice daily at 8:00 AM & 5:00 PM PST)
+Write-Host "⏰ Creating Cloud Scheduler job (8:00 AM & 5:00 PM PST)..." -ForegroundColor Yellow
 gcloud scheduler jobs create http daily-legal-scrape `
-    --schedule="0 8 * * *" `
+    --schedule="0 8,17 * * *" `
     --time-zone="America/Los_Angeles" `
     --uri="$ServiceUrl/api/trigger-scrape" `
     --http-method=POST `
     --location=$Region `
-    --description="Triggers daily LA Legal & AI job scrape at 8:00 AM PST"
+    --description="Triggers daily LA Legal & AI job scrape at 8:00 AM & 5:00 PM PST"
 
 Write-Host "`n🎉 Setup Complete!" -ForegroundColor Green
 Write-Host "🌐 Live Website: $ServiceUrl" -ForegroundColor Cyan
 Write-Host "🔒 Passcode: $Passcode" -ForegroundColor Magenta
-Write-Host "⏰ Scheduled Scrape: Daily at 8:00 AM PST" -ForegroundColor Yellow
+Write-Host "⏰ Auto-Scrapes: 8:00 AM PST & 5:00 PM PST daily" -ForegroundColor Yellow

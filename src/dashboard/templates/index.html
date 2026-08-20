@@ -57,11 +57,17 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
-                    <button @click="triggerScrape()" :disabled="isScraping" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-lg transition">
-                        <span x-show="!isScraping">🔄 Run Scraper</span>
-                        <span x-show="isScraping">⏳ Scraping Live Feeds...</span>
-                    </button>
-                    <button @click="lockDashboard()" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-xs transition" title="Lock Dashboard">
+                    <!-- Live Update Message Badge -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs shadow-inner">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                        <span class="text-slate-400">Last Updated:</span>
+                        <span class="font-bold text-indigo-300" x-text="stats.last_scraped_at || 'Today at 5:00 PM PST'"></span>
+                        <span class="text-slate-500 hidden sm:inline">• (Auto: 8am & 5pm PST)</span>
+                        <button @click="triggerScrape()" :disabled="isScraping" class="ml-1 p-1 hover:text-indigo-400 text-slate-400 transition cursor-pointer" title="Refresh Live Feed">
+                            <span :class="isScraping ? 'animate-spin inline-block' : ''">🔄</span>
+                        </button>
+                    </div>
+                    <button @click="lockDashboard()" class="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-xs transition cursor-pointer" title="Lock Dashboard">
                         🔒 Lock
                     </button>
                 </div>
