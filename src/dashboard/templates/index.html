@@ -534,16 +534,41 @@
                 },
 
                 getNumericAgeDays(job) {
-                    let dStr = job.date_posted || job.date_discovered;
-                    if (!dStr) return 0;
-                    let s = dStr.toLowerCase();
-                    if (s.includes('today') || s.includes('hour') || s.includes('just now')) return 0;
-                    let dM = s.match(/(\d+)\s*d/);
-                    if (dM) return parseInt(dM[1]);
-                    let wM = s.match(/(\d+)\s*w/);
-                    if (wM) return parseInt(wM[1]) * 7;
-                    let mM = s.match(/(\d+)\s*mo/);
-                    if (mM) return parseInt(mM[1]) * 30;
+                    // 1. If job has ISO date_posted (YYYY-MM-DD), compute real days elapsed from today
+                    if (job.date_posted && /^\d{4}-\d{2}-\d{2}/.test(job.date_posted)) {
+                        try {
+                            const posted = new Date(job.date_posted.split('T')[0]);
+                            const now = new Date();
+                            const diffTime = now.getTime() - posted.getTime();
+                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                            return Math.max(0, isNaN(diffDays) ? 0 : diffDays);
+                        } catch (e) {}
+                    }
+                    
+                    // 2. Check age_display or date_posted relative strings (e.g. "Today", "2d ago", "1w ago", "3mo ago")
+                    const str = (job.age_display || job.date_posted || job.date_discovered || '').toLowerCase();
+                    if (str.includes('today') || str.includes('hour') || str.includes('just now') || str.includes('min')) return 0;
+                    
+                    const dM = str.match(/(\d+)\s*d/);
+                    if (dM) return parseInt(dM[1], 10);
+                    
+                    const wM = str.match(/(\d+)\s*w/);
+                    if (wM) return parseInt(wM[1], 10) * 7;
+                    
+                    const mM = str.match(/(\d+)\s*mo/);
+                    if (mM) return parseInt(mM[1], 10) * 30;
+                    
+                    const yM = str.match(/(\d+)\s*y/);
+                    if (yM) return parseInt(yM[1], 10) * 365;
+                    
+                    // 3. Fallback to date_discovered if available
+                    if (job.date_discovered && /^\d{4}-\d{2}-\d{2}/.test(job.date_discovered)) {
+                        try {
+                            const disc = new Date(job.date_discovered.split('T')[0]);
+                            const diffDays = Math.floor((Date.now() - disc.getTime()) / (1000 * 60 * 60 * 24));
+                            return Math.max(0, isNaN(diffDays) ? 0 : diffDays);
+                        } catch (e) {}
+                    }
                     return 0;
                 },
 
@@ -554,7 +579,12 @@
                     } else if (this.sortBy === 'pay') {
                         list.sort((a, b) => this.getNumericPay(b) - this.getNumericPay(a));
                     } else if (this.sortBy === 'date') {
-                        list.sort((a, b) => this.getNumericAgeDays(a) - this.getNumericAgeDays(b));
+                        list.sort((a, b) => {
+                            let ageA = this.getNumericAgeDays(a);
+                            let ageB = this.getNumericAgeDays(b);
+                            if (ageA !== ageB) return ageA - ageB; // newest (0 days) first
+                            return b.match_score - a.match_score;
+                        });
                     } else if (this.sortBy === 'distance') {
                         list.sort((a, b) => {
                             let distA = this.calculateDistance(a.location) || 999;

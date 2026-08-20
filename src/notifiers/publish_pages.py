@@ -30,17 +30,21 @@ def generate_published_site(output_dir: str = "docs") -> str:
     # Rescore all jobs in database to guarantee latest scoring formula & salary display
     all_raw_jobs = db.get_jobs(limit=1000)
     for job in all_raw_jobs:
-        # 1. Update salary_display if missing
-        if not job.salary_display:
-            if job.salary_min or job.salary_max:
-                job.salary_display = format_salary_display(job.salary_min, job.salary_max, job.salary_interval)
-            elif job.description:
-                s_min, s_max, s_int, s_disp = extract_salary(job.description)
-                if s_disp:
-                    job.salary_min = s_min
-                    job.salary_max = s_max
-                    job.salary_interval = s_int
-                    job.salary_display = s_disp
+        # 1. Update salary with latest accurate parser
+        if job.description:
+            s_min, s_max, s_int, s_disp = extract_salary(f"{job.title}\n{job.description}")
+            if s_disp:
+                job.salary_min = s_min
+                job.salary_max = s_max
+                job.salary_interval = s_int
+                job.salary_display = s_disp
+            else:
+                # Clear bogus old values
+                job.salary_min = None
+                job.salary_max = None
+                job.salary_display = ""
+        elif job.salary_min or job.salary_max:
+            job.salary_display = format_salary_display(job.salary_min, job.salary_max, job.salary_interval)
 
         # 2. Re-classify category
         cat, is_ai = classify_role(job.title, job.description)
