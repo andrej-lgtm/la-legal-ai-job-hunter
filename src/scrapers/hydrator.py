@@ -94,37 +94,65 @@ def parse_relative_time_to_age(time_str: str) -> Tuple[str, int]:
     return "🔥 Today", 0
 
 
+def get_effective_hydration_url(url: str) -> str:
+    """Convert standard platform URLs into clean, direct guest APIs if applicable."""
+    if not url:
+        return url
+
+    # LinkedIn: convert /jobs/view/123456 or currentJobId=123456 to guest API endpoint
+    if "linkedin.com" in url:
+        m = re.search(r"/view/(\d+)", url) or re.search(r"currentJobId=(\d+)", url)
+        if m:
+            job_id = m.group(1)
+            return f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+
+    return url
+
+
 def fetch_full_job_details(url: str) -> Tuple[Optional[str], Optional[str]]:
     """Fetch description text and exact posted date metadata from public page."""
     if not url or url == "nan":
         return None, None
 
+    target_url = get_effective_hydration_url(url)
+
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=8)
+        resp = requests.get(target_url, headers=HEADERS, timeout=10)
         if resp.status_code != 200:
-            return None, None
+            # Fallback to original URL if different
+            if target_url != url:
+                resp = requests.get(url, headers=HEADERS, timeout=10)
+                if resp.status_code != 200:
+                    return None, None
+            else:
+                return None, None
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
         # 1. Extract exact posting date / relative time
         posted_time = None
-        time_el = soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")}) or soup.find("time")
+        time_el = (
+            soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")})
+            or soup.find("time")
+            or soup.find("span", {"class": re.compile(r"date|posted")})
+        )
         if time_el:
             posted_time = time_el.get_text().strip()
 
         # 2. Extract description
         desc = None
-        desc_el = soup.find("div", {"class": re.compile(r"show-more-less-html__markup|description__text|details-pane__content")})
+        desc_el = (
+            soup.find("div", {"class": re.compile(r"show-more-less-html__markup|description__text|details-pane__content")})
+            or soup.find("div", {"class": re.compile(r"job-description|job_description|description|posting-requirements|job-details")})
+            or soup.find("section", {"class": re.compile(r"description|job-description")})
+            or soup.find("div", {"id": re.compile(r"jobDescriptionText|job-description|content")})
+        )
         if desc_el:
             desc = clean_html_text(desc_el.get_text(separator="\n"))
         else:
-            content_el = soup.find("div", {"id": "content"}) or soup.find("div", {"class": "body"})
+            content_el = soup.find("div", {"id": "content"}) or soup.find("div", {"class": "body"}) or soup.find("article") or soup.find("main")
             if content_el:
                 desc = clean_html_text(content_el.get_text(separator="\n"))
-            else:
-                main_el = soup.find("article") or soup.find("main") or soup.find("div", {"class": re.compile(r"job-description|job_description|description")})
-                if main_el:
-                    desc = clean_html_text(main_el.get_text(separator="\n"))
 
         return desc, posted_time
 
