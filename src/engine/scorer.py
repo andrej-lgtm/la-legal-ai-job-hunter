@@ -1,4 +1,4 @@
-"""Strict multi-tier scorer enforcing hard gates and candidate-tailored resume scoring."""
+"""Strict multi-tier scorer enforcing hard gates, strict JD requirement, and candidate-tailored resume scoring."""
 
 import re
 from typing import List, Tuple
@@ -32,6 +32,7 @@ DISQUALIFIED_TITLE_PATTERNS = [
     r"\b(tax\s+manager|sales\s+director|account\s+executive|product\s+manager)\b",
     r"\b(software\s+engineer|devops|data\s+scientist|security\s+engineer|systems\s+engineer)\b",
     r"\b(driver|photographer|producer|editor|audio|camera|janitor|maintenance)\b",
+    r"\b(paralegal|legal\s+assistant|legal\s+secretary|clerk|coordinator)\b",
     # Pure Litigation Roles Disqualification
     r"\b(litigation\s+associate|litigation\s+attorney|litigation\s+counsel|trial\s+attorney|defense\s+attorney|civil\s+litigation\s+associate)\b",
     r"\b(personal\s+injury|lemon\s+law|insurance\s+defense|workers\s+comp|workers'\s+comp|wage\s+and\s+hour|class\s+action\s+associate)\b",
@@ -41,8 +42,8 @@ DISQUALIFIED_TITLE_PATTERNS = [
 
 def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]:
     """
-    Score a job posting by first enforcing hard criteria gates, then applying
-    personalized candidate resume matching (Harrison Wheeler) with graded tiers (20% - 100%).
+    Score a job posting by first enforcing hard criteria gates (including strict JD requirement),
+    then applying personalized candidate resume matching (Harrison Wheeler).
 
     Returns:
         (score, reasons, is_qualified)
@@ -132,23 +133,22 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
         job.match_reasons = [f"🚫 Disqualified role/title: '{job.title}'"]
         return 0, job.match_reasons, False
 
-    # Check legal relevance
-    is_legal_title = bool(re.search(r"\b(legal|counsel|attorney|lawyer|contracts|licensing|business\s+affairs|legal\s+ops|legal\s+innovation|intellectual\s+property|ip\s+counsel|paralegal)\b", title_lower))
-    is_legal_desc = bool(re.search(r"\b(juris\s+doctor|jd\b|state\s+bar|california\s+bar|contracts|licensing|intellectual\s+property|legal\s+department)\b", combined_lower))
-    if not (is_legal_title or is_legal_desc):
+    # -------------------------------------------------------------
+    # 4. STRICT HARD JD & BAR REQUIREMENT GATE (USER DIRECTIVE)
+    # -------------------------------------------------------------
+    has_jd, is_jd_req, jd_notes = detect_jd_requirement(job.description, job.title)
+    job.jd_required = is_jd_req
+    job.jd_notes = jd_notes
+
+    if not is_jd_req:
         job.match_score = 0
-        job.match_reasons = ["🚫 Non-legal role"]
+        job.match_reasons = [f"🚫 JD / CA Bar not required ({jd_notes})"]
         return 0, job.match_reasons, False
 
     # Classify role
     cat, is_ai = classify_role(job.title, job.description)
     job.category = cat
     job.is_legal_ai = is_ai
-
-    # JD & Bar Requirement check
-    has_jd, is_jd_req, jd_notes = detect_jd_requirement(job.description, job.title)
-    job.jd_required = is_jd_req
-    job.jd_notes = jd_notes
 
     # Experience check
     exp_min, exp_max, exp_raw, is_exp_match, is_ideal, exp_reason = extract_experience(
@@ -159,36 +159,27 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
     job.exp_raw = exp_raw
 
     # -------------------------------------------------------------
-    # GRADED MATCHING TIERS (20% to 100%)
+    # GRADED MATCHING TIERS FOR JD ROLES (20% to 100%)
     # -------------------------------------------------------------
 
     # TIER 1: Prime & Reach Target JD Roles (75% - 100%)
-    if is_jd_req and is_exp_match:
+    if is_exp_match:
         total_score, match_reasons, is_qualified = match_candidate_to_job(job)
         job.match_score = total_score
         job.match_reasons = match_reasons
         return total_score, match_reasons, is_qualified
 
-    # Prepare detailed badge reasons for all other active tiers
+    # TIER 2: Senior / Stretch Legal Roles in LA (55% - 74%)
     reasons = []
-
-    # Experience Badge Pill
     if exp_min and exp_min >= 5:
         reasons.append(f"⚠️ Requires {exp_min}+ years experience")
     elif "Senior role detected in title" in exp_reason:
         reasons.append(f"⚠️ {exp_reason}")
-    elif is_exp_match:
-        reasons.append(f"🎯 {exp_reason}")
     else:
         reasons.append(f"📋 {exp_reason}")
 
-    # Degree / Bar Badge Pill
-    if is_jd_req:
-        reasons.append("🎓 JD / CA Bar Required")
-    else:
-        reasons.append("ℹ️ Non-Attorney / Legal Operations & Business Affairs")
+    reasons.append("🎓 JD / CA Bar Required")
 
-    # Domain / Studio Fit Pill
     if "business affairs" in title_lower or "business and legal" in title_lower or "entertainment" in combined_lower:
         reasons.append("🎬 Entertainment & Media Business Affairs in LA")
     elif is_ai or "ai" in title_lower or "legal innovation" in title_lower:
@@ -198,38 +189,12 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
     else:
         reasons.append("🏢 Corporate & Commercial Legal in LA")
 
-    # TIER 2: Senior / Stretch Legal Roles in LA (55% - 74%)
-    if is_jd_req and (exp_min or 0) >= 5:
-        score = 55
-        if "counsel" in title_lower or "business affairs" in title_lower or "corporate" in title_lower:
-            score += 10
-        if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "warner", "fox", "netflix"]):
-            score += 5
-        job.match_score = score
-        job.match_reasons = reasons
-        return score, reasons, True
+    score = 55
+    if "counsel" in title_lower or "business affairs" in title_lower or "corporate" in title_lower:
+        score += 10
+    if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "warner", "fox", "netflix"]):
+        score += 5
 
-    # TIER 3: Legal Operations, AI Enablement & Contracts Specialist (35% - 54%)
-    if any(k in title_lower for k in ["legal ops", "legal innovation", "contracts", "compliance", "privacy", "operations"]):
-        score = 40
-        if is_ai:
-            score += 12
-        if any(co in combined_lower for co in ["nbc", "disney", "paramount", "amazon", "sony", "netflix", "riot"]):
-            score += 5
-        job.match_score = score
-        job.match_reasons = reasons
-        return score, reasons, True
-
-    # TIER 4: Legal Support, Rights Management & Licensing (20% - 34%)
-    if any(k in title_lower for k in ["paralegal", "coordinator", "licensing", "rights", "analyst"]):
-        score = 25
-        if "intellectual property" in title_lower or "licensing" in title_lower:
-            score += 5
-        job.match_score = score
-        job.match_reasons = reasons
-        return score, reasons, True
-
-    # Fallback for other legal roles
-    job.match_score = 20
+    job.match_score = score
     job.match_reasons = reasons
-    return 20, reasons, True
+    return score, reasons, True

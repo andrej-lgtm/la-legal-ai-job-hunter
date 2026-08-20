@@ -28,10 +28,11 @@ JD_PREFERRED_PATTERNS = [
     r"\b(cpa\s+or\s+j\.?\s*d\.?|j\.?\s*d\.?\s+or\s+cpa)\b",
 ]
 
-# Non-attorney management / admin roles where JD is optional
+# Non-attorney management / admin / assistant roles where JD is not required
 NON_LAWYER_TITLES = [
     r"\b(practice\s+manager|office\s+manager|billing|tax\s+manager|finance\s+manager|accounting\s+manager)\b",
-    r"\b(paralegal|legal\s+assistant|legal\s+secretary|contract\s+administrator)\b",
+    r"\b(paralegal|legal\s+assistant|legal\s+secretary|contract\s+administrator|coordinator|clerk)\b",
+    r"\b(executive\s+assistant|administrative\s+assistant|assistant\s+to|administrative\s+coordinator)\b",
     r"\b(director[,\s]+production\s+finance|finance\s+director)\b",
 ]
 
@@ -49,15 +50,9 @@ def detect_jd_requirement(text: str, title: str = "") -> Tuple[bool, bool, str]:
     # Filter out JD Edwards false positive
     clean_text = re.sub(r"\bjd\s+edwards\b", "", combined_text, flags=re.IGNORECASE)
 
-    # Check if title is a non-lawyer administrative/finance/tax role
+    # Check if title is a non-lawyer administrative/finance/assistant role
     if any(re.search(pat, title_lower, re.IGNORECASE) for pat in NON_LAWYER_TITLES):
-        return False, False, "Non-lawyer operational/admin role (JD not required)"
-
-    # Check for Attorney / Counsel / Law Firm Associate / Business & Legal Affairs title
-    attorney_title_match = re.search(
-        r"\b(counsel|attorney|lawyer|corporate\s+associate|m&a\s+associate|mergers\s+and\s+acquisitions\s+associate|litigation\s+associate|associate\s*[-–—]\s*ai|ai\s+associate|technology\s+associate|business\s+&\s+legal\s+affairs|legal\s+affairs|business\s+affairs)\b",
-        title_lower,
-    )
+        return False, False, "Non-lawyer operational/admin/assistant role (JD not required)"
 
     has_bar_mention = any(re.search(pat, clean_text, re.IGNORECASE) for pat in BAR_PATTERNS)
     has_jd_mention = any(re.search(pat, clean_text, re.IGNORECASE) for pat in JD_PATTERNS)
@@ -71,7 +66,12 @@ def detect_jd_requirement(text: str, title: str = "") -> Tuple[bool, bool, str]:
             return True, False, "JD preferred / plus (optional)"
         return True, True, "JD required"
 
-    if attorney_title_match:
+    # Check for explicit Attorney / Counsel / Law Firm Associate title
+    attorney_title_match = re.search(
+        r"\b(counsel|attorney|lawyer|corporate\s+associate|m&a\s+associate|mergers\s+and\s+acquisitions\s+associate|associate\s*[-–—]\s*ai|ai\s+associate|technology\s+associate)\b",
+        title_lower,
+    )
+    if attorney_title_match and not any(re.search(pat, title_lower, re.IGNORECASE) for pat in NON_LAWYER_TITLES):
         return True, True, "Attorney/Counsel role (JD required by title)"
 
     return False, False, "No JD / Bar requirement found"
