@@ -112,7 +112,7 @@ def start_dashboard(port: int = 8000):
 
 def main():
     parser = argparse.ArgumentParser(description="Legal & AI Job Hunter (Los Angeles Metro)")
-    parser.add_argument("--run-now", action="store_true", help="Run the scraper and generate digest immediately")
+    parser.add_argument("--run-now", "--daily", action="store_true", help="Run the scraper and generate digest immediately")
     parser.add_argument("--dashboard", action="store_true", help="Launch the local interactive web dashboard")
     parser.add_argument("--port", type=int, default=8000, help="Port for dashboard (default: 8000)")
     parser.add_argument("--digest", action="store_true", help="Generate HTML digest from existing DB records")

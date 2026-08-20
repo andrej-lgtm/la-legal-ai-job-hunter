@@ -42,7 +42,7 @@ jobs:
 
       - name: Run Scraper & Update Pipeline
         run: |
-          python main.py --daily || true
+          python main.py --run-now
 
       - name: Generate Standalone Web App for GitHub Pages
         run: |
