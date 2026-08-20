@@ -184,13 +184,15 @@ def match_candidate_to_job(
 
     if effective_pay is not None:
         if effective_pay >= 170000.0:
-            score += 10
-        elif 140000.0 <= effective_pay < 170000.0:
+            pass  # No bonus, standard neutral baseline
+        elif 150000.0 <= effective_pay < 170000.0:
             score -= 5
-        elif 110000.0 <= effective_pay < 140000.0:
-            score -= 15
-        elif effective_pay < 110000.0:
-            score -= 25
+        elif 125000.0 <= effective_pay < 150000.0:
+            score -= 20
+        elif 100000.0 <= effective_pay < 125000.0:
+            score -= 35
+        elif effective_pay < 100000.0:
+            score -= 50
 
     # Clamping
     final_score = max(0, min(100, score))
