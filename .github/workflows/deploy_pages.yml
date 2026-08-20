@@ -1,0 +1,68 @@
+name: Deploy Live Dashboard to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Runs twice daily at 8:00 AM PST (15:00 UTC) and 5:00 PM PST (00:00 UTC)
+    - cron: '0 15,0 * * *'
+  workflow_dispatch:
+
+# Permissions for GitHub Pages deployment
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Scraper & Update Pipeline
+        run: |
+          python main.py --daily || true
+
+      - name: Generate Standalone Web App for GitHub Pages
+        run: |
+          python src/notifiers/publish_pages.py
+
+      - name: Commit updated database and docs
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/ docs/
+          git diff --staged --quiet || git commit -m "chore(auto-scrape): update live database and publish online dashboard [skip ci]"
+          git push origin main || true
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs/'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
