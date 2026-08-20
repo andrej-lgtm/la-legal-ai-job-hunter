@@ -60,7 +60,11 @@ def classify_role(title: str, text: str = "") -> Tuple[str, bool]:
         return "Legal AI", True
 
     # 6. Litigation Associate check
-    if any(w in title_lower for w in ["litigation associate", "litigation attorney", "litigation counsel", "trial attorney", "defense attorney", "civil litigation", "commercial litigation", "entertainment litigation"]):
+    if any(w in title_lower for w in [
+        "litigation associate", "litigation attorney", "litigation counsel", "trial attorney",
+        "defense attorney", "civil litigation", "commercial litigation", "entertainment litigation",
+        "wage and hour", "class action", "employment litigation", "labor and employment", "labor & employment", "paga"
+    ]):
         return "Litigation Associate", is_legal_ai
 
     # 7. In-House Counsel / Business Affairs check

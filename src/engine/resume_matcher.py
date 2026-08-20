@@ -102,7 +102,7 @@ def match_candidate_to_job(
     is_tax_erisa = bool(re.search(r"\b(tax\s+counsel|tax\s+attorney|erisa|executive\s+compensation|partnership\s+tax)\b", f"{title_lower} {combined_text}"))
     is_patent_bar = bool(re.search(r"\b(patent\s+prosecution|patent\s+bar|uspto\s+registration|patent\s+attorney)\b", f"{title_lower} {combined_text}"))
     is_labor_union = bool(re.search(r"\b(nlrb|collective\s+bargaining|labor\s+relations|union\s+negotiations)\b", f"{title_lower} {combined_text}"))
-    is_litigation = bool(re.search(r"\b(litigation|trial\s+attorney|defense\s+attorney|civil\s+litigation|commercial\s+litigation|entertainment\s+litigation|personal\s+injury|lemon\s+law|insurance\s+defense|complex\s+litigation|trial\s+lawyer)\b", title_lower))
+    is_litigation = bool(re.search(r"\b(litigation|trial\s+attorney|defense\s+attorney|civil\s+litigation|commercial\s+litigation|entertainment\s+litigation|personal\s+injury|lemon\s+law|insurance\s+defense|complex\s+litigation|trial\s+lawyer|wage\s+and\s+hour|class\s+action|employment\s+litigation|paga|labor\s+and\s+employment|labor\s+&\s+employment)\b", f"{title_lower} {combined_text}"))
 
     if is_real_estate:
         score -= 25

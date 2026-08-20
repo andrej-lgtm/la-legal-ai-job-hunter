@@ -15,6 +15,8 @@ if str(ROOT_DIR) not in sys.path:
 from src.config import load_config
 from src.db.database import Database
 from src.engine.scorer import score_job
+from src.engine.salary_parser import extract_salary, format_salary_display
+from src.engine.classifier import classify_role
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +26,39 @@ def generate_published_site(output_dir: str = "docs") -> str:
     config = load_config(str(ROOT_DIR / "config.yaml"))
     db = Database(str(ROOT_DIR / config.database.path))
 
-    # Rescore all jobs in database to guarantee latest scoring formula
+    # Rescore all jobs in database to guarantee latest scoring formula & salary display
     all_raw_jobs = db.get_jobs(limit=1000)
     for job in all_raw_jobs:
+        # 1. Update salary_display if missing
+        if not job.salary_display:
+            if job.salary_min or job.salary_max:
+                job.salary_display = format_salary_display(job.salary_min, job.salary_max, job.salary_interval)
+            elif job.description:
+                s_min, s_max, s_int, s_disp = extract_salary(job.description)
+                if s_disp:
+                    job.salary_min = s_min
+                    job.salary_max = s_max
+                    job.salary_interval = s_int
+                    job.salary_display = s_disp
+
+        # 2. Re-classify category
+        cat, is_ai = classify_role(job.title, job.description)
+        job.category = cat
+        job.is_legal_ai = is_ai
+
+        # 3. Score
         score, reasons, is_qual = score_job(job, config)
         with db._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE jobs SET match_score = ?, match_reasons = ?, category = ?, is_legal_ai = ?, jd_required = ?, jd_notes = ? WHERE id = ?",
-                (score, json.dumps(reasons), job.category, 1 if job.is_legal_ai else 0, 1 if job.jd_required else 0, job.jd_notes, job.id)
+                """UPDATE jobs 
+                   SET match_score = ?, match_reasons = ?, category = ?, is_legal_ai = ?, 
+                       jd_required = ?, jd_notes = ?, salary_min = ?, salary_max = ?, 
+                       salary_interval = ?, salary_display = ? 
+                   WHERE id = ?""",
+                (score, json.dumps(reasons), job.category, 1 if job.is_legal_ai else 0, 
+                 1 if job.jd_required else 0, job.jd_notes, job.salary_min, job.salary_max, 
+                 job.salary_interval, job.salary_display, job.id)
             )
             conn.commit()
 

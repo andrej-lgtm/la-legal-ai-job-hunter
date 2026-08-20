@@ -78,3 +78,23 @@ def extract_salary(text: str) -> Tuple[Optional[float], Optional[float], str, st
             pass
 
     return None, None, "yearly", ""
+
+
+def format_salary_display(min_val: Optional[float], max_val: Optional[float], interval: str = "yearly") -> str:
+    """Format numeric salary values into a clean display string."""
+    if not min_val and not max_val:
+        return ""
+    val1 = min_val or max_val
+    val2 = max_val or min_val
+    if not val1 or not val2:
+        return ""
+    if interval == "hourly" or (val1 < 500 and val2 < 500):
+        if val1 == val2:
+            return f"💵 ${int(val1)}/hr"
+        return f"💵 ${int(min(val1, val2))} – ${int(max(val1, val2))}/hr"
+    else:
+        k1 = int(round(min(val1, val2) / 1000))
+        k2 = int(round(max(val1, val2) / 1000))
+        if k1 == k2:
+            return f"💵 ${k1}k/yr"
+        return f"💵 ${k1}k – ${k2}k/yr"
