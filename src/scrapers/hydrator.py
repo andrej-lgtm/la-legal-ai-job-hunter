@@ -127,6 +127,8 @@ def fetch_full_job_details(url: str) -> Tuple[Optional[str], Optional[str]]:
             else:
                 return None, None
 
+        soup = BeautifulSoup(resp.text, "html.parser")
+
         # 1. Extract exact posting date from JSON-LD or HTML elements
         posted_time = None
         for s in soup.find_all("script", type="application/ld+json"):
