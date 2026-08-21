@@ -5,9 +5,9 @@ on:
     branches:
       - main
   schedule:
-    # Runs twice daily at 8:05 AM PDT (15:05 UTC) and 5:05 PM PDT (00:05 UTC)
-    - cron: '5 15 * * *'
-    - cron: '5 0 * * *'
+    # Runs twice daily at 7:11 AM PDT (14:11 UTC) and 4:11 PM PDT (23:11 UTC)
+    - cron: '11 14 * * *'
+    - cron: '11 23 * * *'
   workflow_dispatch:
 
 # Permissions for GitHub Pages deployment
