@@ -4,7 +4,7 @@ import re
 from typing import Tuple
 
 AI_SPECIFIC_KEYWORDS = [
-    r"\b(artificial\s+intelligence|generative\s+ai|genai|gen\s*ai|large\s+language\s+models?|\bllms?\b)\b",
+    r"\b(artificial\s+intelligence|generative\s+ai|genai|gen\s*ai|large\s+language\s+models?|(?:ai|genai|ai-native)\s+llms?|llm\s+applications?|rag\s+and\s+llms?)\b",
     r"\b(ai\s+governance|ai\s+ethics|ai\s+policy|ai\s+compliance|ai\s+regulation|ai\s+safety|ai\s+risk)\b",
     r"\b(prompt\s+engineering|prompt\s+engineer|machine\s+learning\s+legal)\b",
     r"\b(legal\s+ai|legal\s+technology|legaltech|legal\s+tech|legal\s+innovation)\b",

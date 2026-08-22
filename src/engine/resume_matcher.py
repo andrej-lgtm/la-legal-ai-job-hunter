@@ -105,59 +105,129 @@ def match_candidate_to_job(
     # -------------------------------------------------------------------------
     # Dimension 3: Practice Domain & Specialty Alignment
     # -------------------------------------------------------------------------
-    # 3A. Negative Domain Penalties (Mismatches for Harrison)
-    is_real_estate = bool(re.search(r"\b(real\s+estate|land\s+use|zoning|property\s+acquisition|leasing\s+counsel|construction\s+law|tenant\s+disputes|property\s+management)\b", f"{title_lower} {combined_text}"))
-    is_tax_erisa = bool(re.search(r"\b(tax\s+counsel|tax\s+attorney|erisa|executive\s+compensation|partnership\s+tax)\b", f"{title_lower} {combined_text}"))
-    is_patent_bar = bool(re.search(r"\b(patent\s+prosecution|patent\s+bar|uspto\s+registration|patent\s+attorney)\b", f"{title_lower} {combined_text}"))
-    is_labor_union = bool(re.search(r"\b(nlrb|collective\s+bargaining|labor\s+relations|union\s+negotiations)\b", f"{title_lower} {combined_text}"))
-    is_litigation = bool(re.search(r"\b(litigation|trial\s+attorney|defense\s+attorney|civil\s+litigation|commercial\s+litigation|entertainment\s+litigation|personal\s+injury|lemon\s+law|insurance\s+defense|complex\s+litigation|trial\s+lawyer|wage\s+and\s+hour|class\s+action|employment\s+litigation|paga|labor\s+and\s+employment|labor\s+&\s+employment)\b", f"{title_lower} {combined_text}"))
+    # 3A. Negative Domain Penalties (Specialties that are NOT target for Harrison)
+    is_tax_erisa = bool(re.search(
+        r"\b(tax\s+associate|transactional\s+tax|international\s+tax|tax\s+counsel|tax\s+attorney|taxation|erisa|executive\s+compensation|partnership\s+tax|state\s+and\s+local\s+tax|salt\s+associate|ll\.?m\.?\s+in\s+tax)\b",
+        f"{title_lower} {combined_text}"
+    ))
+    is_banking_finance = bool(re.search(
+        r"\b(debt\s+finance|public\s+finance|leveraged\s+finance|structured\s+finance|capital\s+markets|fund\s+formation|private\s+funds|derivatives|securitization|asset-backed|project\s+finance|banking\s+associate|municipal\s+finance|syndicated\s+lending|commercial\s+lending)\b",
+        f"{title_lower} {combined_text}"
+    ))
+    is_trusts_estates = bool(re.search(
+        r"\b(trusts\s+and\s+estates|estate\s+planning|wealth\s+planning|probate\s+counsel|private\s+wealth\s+associate)\b",
+        f"{title_lower} {combined_text}"
+    ))
+    is_real_estate = bool(re.search(
+        r"\b(real\s+estate|land\s+use|zoning|property\s+acquisition|leasing\s+counsel|construction\s+law|tenant\s+disputes|property\s+management)\b",
+        f"{title_lower} {combined_text}"
+    ))
+    is_patent_bar = bool(re.search(
+        r"\b(patent\s+prosecution|patent\s+bar|uspto\s+registration|patent\s+attorney)\b",
+        f"{title_lower} {combined_text}"
+    ))
+    is_labor_union = bool(re.search(
+        r"\b(nlrb|collective\s+bargaining|labor\s+relations|union\s+negotiations)\b",
+        f"{title_lower} {combined_text}"
+    ))
+    is_litigation = bool(re.search(
+        r"\b(litigation|trial\s+attorney|defense\s+attorney|civil\s+litigation|commercial\s+litigation|entertainment\s+litigation|personal\s+injury|lemon\s+law|insurance\s+defense|complex\s+litigation|trial\s+lawyer|wage\s+and\s+hour|class\s+action|employment\s+litigation|paga|labor\s+and\s+employment|labor\s+&\s+employment)\b",
+        f"{title_lower} {combined_text}"
+    ))
 
-    if is_real_estate:
+    has_domain_mismatch = False
+    if is_tax_erisa:
+        score -= 25
+        reasons.append("⚠️ Practice Mismatch: Tax & Executive Compensation")
+        has_domain_mismatch = True
+    elif is_banking_finance:
+        score -= 25
+        reasons.append("⚠️ Practice Mismatch: Banking & Finance")
+        has_domain_mismatch = True
+    elif is_trusts_estates:
+        score -= 25
+        reasons.append("⚠️ Practice Mismatch: Trusts & Estate Planning")
+        has_domain_mismatch = True
+    elif is_real_estate:
         score -= 25
         reasons.append("⚠️ Practice Mismatch: Commercial Real Estate & Land Use")
-    elif is_tax_erisa:
-        score -= 25
-        reasons.append("⚠️ Practice Mismatch: Tax & ERISA")
+        has_domain_mismatch = True
     elif is_patent_bar:
         score -= 30
         reasons.append("⚠️ Practice Mismatch: Requires Patent Bar")
+        has_domain_mismatch = True
     elif is_labor_union:
         score -= 20
         reasons.append("⚠️ Practice Mismatch: Labor Relations")
+        has_domain_mismatch = True
     elif is_litigation:
         score -= 25
         reasons.append("⚖️ Litigation Practice: Secondary focus")
+        has_domain_mismatch = True
 
-    # 3B. Positive Practice Alignment
-    has_ai_focus = bool(re.search(r"\b(legal\s+engineer|associate\s*[-–—]\s*ai|ai\s+associate|ai\s+counsel|ai\s+attorney|prompt|legaltech|legal\s+tech|legal\s+innovation)\b", f"{title_lower} {combined_text}"))
-    is_entertainment_role = any(k in f"{comp_lower} {title_lower} {combined_text}" for k in ["entertainment", "studio", "studios", "mgm", "music", "prime video", "gaming", "media", "fox", "riot games", "sony", "live nation", "disney", "netflix", "warner", "paramount", "telemundo", "nbcu", "nbcuniversal", "legendary"])
-    is_corp_commercial = any(k in title_lower for k in ["in-house", "corporate counsel", "commercial counsel", "product counsel", "privacy counsel", "legal counsel", "business affairs", "contracts counsel", "corporate associate", "commercial", "technology transactions"])
+    # 3B. Positive Practice Alignment (Only applies if no practice mismatch)
+    has_ai_focus = bool(re.search(
+        r"\b(legal\s+engineer|legal\s+technologist|associate\s*[-–—]\s*ai|ai\s+associate|ai\s+counsel|ai\s+attorney|prompt\s+lawyer|legaltech|legal\s+tech|legal\s+innovation)\b",
+        f"{title_lower} {combined_text}"
+    ))
+
+    # Entertainment matches if:
+    # 1. Company is an entertainment studio/media company, OR
+    # 2. Title has explicit entertainment terms, OR
+    # 3. Dense entertainment text (with no domain mismatch)
+    is_ent_studio = any(k in comp_lower for k in [
+        "entertainment", "studio", "studios", "mgm", "prime video", "riot games", "sony pictures",
+        "sony music", "live nation", "disney", "netflix", "warner", "paramount", "telemundo",
+        "nbcu", "nbcuniversal", "legendary", "a+e", "pluto tv", "fox corporation", "fox entertainment",
+        "lionsgate", "krafton", "blizzard"
+    ])
+    is_ent_title = bool(re.search(
+        r"\b(entertainment|music|production|film|television|media\s+counsel|business\s+(?:&|and)\s+legal\s+affairs|video\s+game|interactive\s+entertainment)\b",
+        title_lower
+    ))
+    is_ent_dense_desc = bool(re.search(
+        r"\b(film\s+and\s+television|music\s+licensing|talent\s+agreements|script\s+clearance|production\s+legal|chain\s+of\s+title|motion\s+picture|audiovisual\s+content)\b",
+        combined_text
+    ))
+
+    is_entertainment_role = (is_ent_studio or is_ent_title or is_ent_dense_desc) and not has_domain_mismatch
+
+    is_corp_commercial = any(k in title_lower for k in [
+        "in-house", "corporate counsel", "commercial counsel", "product counsel", "privacy counsel",
+        "legal counsel", "business affairs", "contracts counsel", "corporate associate", "commercial",
+        "technology transactions", "m&a associate"
+    ])
 
     if has_ai_focus:
         score += 20
         reasons.append("🤖 Prime Match: Legal AI & Engineering")
-    elif is_entertainment_role and not is_real_estate:
+    elif is_entertainment_role:
         score += 18
         reasons.append("🎬 Prime Match: Entertainment & Media Legal")
-    elif is_corp_commercial:
+    elif is_corp_commercial and not has_domain_mismatch:
         score += 15
         reasons.append("🏢 Strong Match: Corporate Transactions & Licensing")
-    elif not is_litigation:
+    elif not has_domain_mismatch:
         score += 10
         reasons.append("⚖️ Corporate / Legal Practice match")
 
     # -------------------------------------------------------------------------
     # Dimension 4: Candidate Superpowers & Employer Affinity
     # -------------------------------------------------------------------------
-    # 4A. LegalTech / GenAI Mention
-    has_harvey_or_llm = any(k in combined_text for k in ["harvey", "generative ai", "genai", "prompt", "llm", "large language", "legal tech", "legal technology", "ai-native", "automation", "emerging technology"])
+    # 4A. LegalTech / GenAI Mention (Sanitize out LL.M. degree references)
+    clean_ai_text = re.sub(r"\bll\.?m\.?\s+(?:in|of)\s+[a-z]+|\bll\.?m\.?\s+degree\b|\bmaster\s+of\s+laws\b", " ", combined_text, flags=re.IGNORECASE)
+    has_harvey_or_llm = bool(re.search(
+        r"\b(harvey|generative\s+ai|genai|prompt\s+engineering|legal\s*tech|legaltechnology|ai-native|agentic\s+ai|large\s+language\s+model|(?:ai|genai)\s+llms?|llm\s+tools?|copilot|chatgpt|casetext|robin\s+ai)\b",
+        clean_ai_text,
+        re.IGNORECASE
+    ))
     if has_harvey_or_llm:
         score += 5
         reasons.append("✨ Superpower: Role utilizes AI & LegalTech")
 
     # 4B. Entertainment Skills
     has_ent_skills = any(k in combined_text for k in ["licensing", "distribution", "merchandising", "chain of title", "copyright", "talent agreements", "sponsorship", "clearance"])
-    if has_ent_skills and not is_real_estate:
+    if has_ent_skills and not has_domain_mismatch:
         score += 4
         reasons.append("🎭 Key Skills: Licensing, copyright & distribution")
 
@@ -207,6 +277,6 @@ def match_candidate_to_job(
     job.match_score = final_score
     job.match_reasons = reasons
 
-    is_qualified = final_score >= 70
+    is_qualified = final_score >= 70 and not has_domain_mismatch
 
     return final_score, reasons, is_qualified
