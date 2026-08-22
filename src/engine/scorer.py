@@ -72,14 +72,16 @@ def score_job(job: JobPosting, config: AppConfig) -> Tuple[int, List[str], bool]
     # 2. HARD GEOGRAPHIC GATE (STRICT LA COUNTY ONLY)
     # -------------------------------------------------------------
     is_explicit_non_la = any(re.search(pat, loc_lower, re.IGNORECASE) for pat in NON_LA_COUNTY_PATTERNS)
-    is_la_county = any(re.search(pat, loc_lower, re.IGNORECASE) for pat in LA_COUNTY_CITIES) or "los angeles" in combined_lower
-
-    if is_explicit_non_la and not is_la_county:
+    if is_explicit_non_la:
         job.match_score = 0
         job.match_reasons = [f"🚫 Location not in Los Angeles County: '{job.location}'"]
         return 0, job.match_reasons, False
 
-    if not is_la_county:
+    is_la_county_loc = any(re.search(pat, loc_lower, re.IGNORECASE) for pat in LA_COUNTY_CITIES)
+    is_general_ca = loc_lower in ["california", "ca", "remote", "hybrid", "united states", "us", ""] or bool(re.search(r"^(?:california|ca|hybrid|remote)$", loc_lower))
+    is_la_in_desc = "los angeles" in combined_lower or any(re.search(pat, combined_lower, re.IGNORECASE) for pat in LA_COUNTY_CITIES)
+
+    if not is_la_county_loc and not (is_general_ca and is_la_in_desc):
         job.match_score = 0
         job.match_reasons = [f"🚫 Location not in Los Angeles County: '{job.location}'"]
         return 0, job.match_reasons, False
