@@ -21,8 +21,8 @@ LA_COUNTY_CITIES = [
 
 NON_LA_COUNTY_PATTERNS = [
     r"\b(san\s+francisco|bay\s+area|silicon\s+valley|san\s+jose|palo\s+alto|mountain\s+view|sunnyvale|oakland|berkeley|menlo\s+park|redwood\s+city)\b",
-    r"\b(orange\s+county|irvine|newport\s+beach|costa\s+mesa|anaheim)\b",
-    r"\b(san\s+diego|la\s+jolla|carlsbad)\b",
+    r"\b(orange\s+county|irvine|newport\s+beach|costa\s+mesa|anaheim|santa\s+ana|orange|huntington\s+beach|fullerton|garden\s+grove|tustin|mission\s+viejo|aliso\s+viejo|laguna\s+beach|laguna\s+niguel|lake\s+forest|san\s+clemente|seal\s+beach|brea|placentia|fountain\s+valley|westminster)\b",
+    r"\b(san\s+diego|la\s+jolla|carlsbad|chula\s+vista|oceanside|escondido)\b",
     r"\b(new\s+york|ny|chicago|seattle|austin|boston|denver|london|miami|dallas|washington\s+d\.?c\.?|atlanta)\b",
 ]
 

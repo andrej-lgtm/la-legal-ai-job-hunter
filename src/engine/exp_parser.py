@@ -73,72 +73,81 @@ def extract_experience(
         re.search(r"\b(associate\s+counsel|associate\s+corporate|associate\s+commercial|associate\s+attorney|junior|assistant\s+counsel|associate\s+director)\b", title_lower)
     )
 
-    # 1. Search for experience numbers first in text/description
-    found_ranges = []
+    # 1. Search for experience numbers across all patterns with position tracking
+    found_matches = []
     for pattern in EXP_RANGE_PATTERNS:
         for match in re.finditer(pattern, combined, re.IGNORECASE):
             groups = match.groups()
+            exp_min = None
+            exp_max = None
             if len(groups) >= 2 and groups[1] is not None:
                 exp_min = _parse_num(groups[0])
                 exp_max = _parse_num(groups[1])
-                if exp_min is not None:
-                    found_ranges.append((exp_min, exp_max, match.group(0)))
             elif len(groups) >= 1 and groups[0] is not None:
                 exp_min = _parse_num(groups[0])
-                if exp_min is not None:
-                    found_ranges.append((exp_min, None, match.group(0)))
 
-    if found_ranges:
-        valid_ranges = [r for r in found_ranges if r[0] <= 30]
-        if valid_ranges:
-            primary = valid_ranges[0]
-            exp_min, exp_max, raw_str = primary
+            if exp_min is not None and exp_min <= 30:
+                found_matches.append((match.start(), exp_min, exp_max, match.group(0)))
 
-            # Requirement check for 5+ years
-            if exp_min >= 5:
-                return (
-                    exp_min,
-                    exp_max,
-                    raw_str,
-                    False,
-                    False,
-                    f"Requires {exp_min}+ years experience",
-                )
+    if found_matches:
+        # Sort by appearance order in text
+        found_matches.sort(key=lambda x: x[0])
 
-            # Ideal Match: 1-3 years (Harrison's exact sweet spot: 1-2 yrs, 1-3 yrs, 2 yrs, 2-3 yrs)
-            is_strict_prime = (
-                (exp_min in [1, 2] and (exp_max is None or exp_max <= 3))
-                or (exp_min == 3 and exp_max == 3)
+        # If any requirement specifies 5+ years (e.g. 6+ years legal experience, 2-3 years fintech),
+        # prioritize the overarching baseline experience requirement
+        senior_matches = [m for m in found_matches if m[1] >= 5]
+        if senior_matches:
+            primary = senior_matches[0]
+        else:
+            primary = found_matches[0]
+
+        start_pos, exp_min, exp_max, raw_str = primary
+
+        # Requirement check for 5+ years
+        if exp_min >= 5:
+            return (
+                exp_min,
+                exp_max,
+                raw_str,
+                False,
+                False,
+                f"Requires {exp_min}+ years experience",
             )
 
-            if is_strict_prime:
-                return (
-                    exp_min,
-                    exp_max,
-                    raw_str,
-                    True,
-                    True,
-                    f"Prime 1–3 years experience match ({raw_str.strip()})",
-                )
-            # Reach Match: 3-4 years, 2-4 years, or 4+ years
-            elif (exp_min == 3 and (exp_max is None or exp_max >= 4)) or exp_min == 4 or (exp_min == 2 and exp_max and exp_max >= 4):
-                return (
-                    exp_min,
-                    exp_max,
-                    raw_str,
-                    True,
-                    False,
-                    f"Reach 3–4 years experience ({raw_str.strip()})",
-                )
-            else:
-                return (
-                    exp_min,
-                    exp_max,
-                    raw_str,
-                    False,
-                    False,
-                    f"Requires {raw_str.strip()}",
-                )
+        # Ideal Match: 1-3 years (Harrison's exact sweet spot: 1-2 yrs, 1-3 yrs, 2 yrs, 2-3 yrs)
+        is_strict_prime = (
+            (exp_min in [1, 2] and (exp_max is None or exp_max <= 3))
+            or (exp_min == 3 and exp_max == 3)
+        )
+
+        if is_strict_prime:
+            return (
+                exp_min,
+                exp_max,
+                raw_str,
+                True,
+                True,
+                f"Prime 1–3 years experience match ({raw_str.strip()})",
+            )
+        # Reach Match: 3-4 years, 2-4 years, or 4+ years
+        elif (exp_min == 3 and (exp_max is None or exp_max >= 4)) or exp_min == 4 or (exp_min == 2 and exp_max and exp_max >= 4):
+            return (
+                exp_min,
+                exp_max,
+                raw_str,
+                True,
+                False,
+                f"Reach 3–4 years experience ({raw_str.strip()})",
+            )
+        else:
+            return (
+                exp_min,
+                exp_max,
+                raw_str,
+                False,
+                False,
+                f"Requires {raw_str.strip()}",
+            )
 
     # 2. Check for senior disqualifiers in title if no numbers found
     if any(re.search(pat, title_lower, re.IGNORECASE) for pat in SENIOR_DISQUALIFIERS) and not has_junior_title:
