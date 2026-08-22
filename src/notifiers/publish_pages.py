@@ -28,7 +28,7 @@ def generate_published_site(output_dir: str = "docs") -> str:
     config = load_config(str(ROOT_DIR / "config.yaml"))
     db = Database(str(ROOT_DIR / config.database.path))
 
-    all_raw_jobs = db.get_jobs(limit=1000)
+    all_raw_jobs = db.get_jobs(limit=10000)
 
     # 0. Fail-safe hydration: ensure any unhydrated active/matching jobs have full descriptions
     unhydrated = [j for j in all_raw_jobs if not j.description or len(j.description) < 100]
