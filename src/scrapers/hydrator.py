@@ -2,8 +2,11 @@
 
 import concurrent.futures
 from datetime import datetime, timedelta
+import json
 import logging
+import random
 import re
+import time
 from typing import List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
@@ -12,11 +15,25 @@ from src.engine.salary_parser import extract_salary
 
 logger = logging.getLogger(__name__)
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+]
+
+
+def _get_headers() -> dict:
+    return {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+    }
 
 
 def parse_relative_time_to_age(time_str: str) -> Tuple[str, int]:
@@ -109,87 +126,116 @@ def get_effective_hydration_url(url: str) -> str:
     return url
 
 
-def fetch_full_job_details(url: str) -> Tuple[Optional[str], Optional[str]]:
-    """Fetch description text and exact posted date metadata from public page."""
+def _extract_from_soup(soup: BeautifulSoup) -> Optional[str]:
+    """Extract description text from parsed HTML soup."""
+    desc_el = (
+        soup.find("div", {"class": re.compile(r"show-more-less-html__markup|description__text|details-pane__content")})
+        or soup.find("div", {"class": re.compile(r"job-description|job_description|description|posting-requirements|job-details")})
+        or soup.find("section", {"class": re.compile(r"description|job-description")})
+        or soup.find("div", {"id": re.compile(r"jobDescriptionText|job-description|content")})
+        or soup.find("div", {"class": re.compile(r"core-section-container__content")})
+    )
+    if desc_el:
+        txt = clean_html_text(desc_el.get_text(separator="\n"))
+        if len(txt) >= 80:
+            return txt
+
+    content_el = soup.find("div", {"id": "content"}) or soup.find("div", {"class": "body"}) or soup.find("article") or soup.find("main")
+    if content_el:
+        txt = clean_html_text(content_el.get_text(separator="\n"))
+        if len(txt) >= 80:
+            return txt
+
+    return None
+
+
+def fetch_full_job_details(url: str, retries: int = 2) -> Tuple[Optional[str], Optional[str]]:
+    """Fetch description text and exact posted date metadata from public page with multi-strategy fallbacks."""
     if not url or url == "nan":
         return None, None
 
-    target_url = get_effective_hydration_url(url)
+    candidate_urls = [get_effective_hydration_url(url)]
+    # If LinkedIn guest API was generated, also prepare standard public URL as fallback
+    if "jobs-guest/jobs/api/jobPosting/" in candidate_urls[0]:
+        m = re.search(r"/jobPosting/(\d+)", candidate_urls[0])
+        if m:
+            candidate_urls.append(f"https://www.linkedin.com/jobs/view/{m.group(1)}/")
+    elif candidate_urls[0] != url:
+        candidate_urls.append(url)
 
-    try:
-        resp = requests.get(target_url, headers=HEADERS, timeout=10)
-        if resp.status_code != 200:
-            # Fallback to original URL if different
-            if target_url != url:
-                resp = requests.get(url, headers=HEADERS, timeout=10)
-                if resp.status_code != 200:
-                    return None, None
-            else:
-                return None, None
+    session = requests.Session()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # 1. Extract exact posting date from JSON-LD or HTML elements
-        posted_time = None
-        for s in soup.find_all("script", type="application/ld+json"):
+    for target_url in candidate_urls:
+        for attempt in range(retries + 1):
             try:
-                data = json.loads(s.get_text())
-                if isinstance(data, dict) and data.get("datePosted"):
-                    posted_time = str(data["datePosted"]).strip()
+                resp = session.get(target_url, headers=_get_headers(), timeout=10)
+                if resp.status_code == 429:
+                    # Rate limit encountered, backoff briefly
+                    time.sleep(1.0 + random.random())
+                    continue
+                if resp.status_code != 200:
                     break
-            except Exception:
-                pass
 
-        if not posted_time:
-            # Check for Last Updated / Posted date text
-            m = re.search(r"(?:Last Updated|Posted|Date Posted):\s*([A-Za-z]+\s+\d{1,2},\s*\d{4})", resp.text, re.IGNORECASE)
-            if m:
-                raw_d = m.group(1).strip()
-                try:
-                    d = datetime.strptime(raw_d, "%B %d, %Y")
-                    posted_time = d.strftime("%Y-%m-%d")
-                except Exception:
-                    posted_time = raw_d
+                soup = BeautifulSoup(resp.text, "html.parser")
 
-        if not posted_time:
-            time_el = (
-                soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")})
-                or soup.find("time")
-            )
-            if time_el:
-                txt = time_el.get_text().strip()
-                if not any(k in txt for k in ["•", "schedule", "locked"]):
-                    posted_time = txt
+                # 1. Extract exact posting date from JSON-LD or HTML elements
+                posted_time = None
+                for s in soup.find_all("script", type="application/ld+json"):
+                    try:
+                        data = json.loads(s.get_text())
+                        if isinstance(data, dict) and data.get("datePosted"):
+                            posted_time = str(data["datePosted"]).strip()
+                            break
+                        elif isinstance(data, list):
+                            for item in data:
+                                if isinstance(item, dict) and item.get("datePosted"):
+                                    posted_time = str(item["datePosted"]).strip()
+                                    break
+                    except Exception:
+                        pass
 
-        # 2. Extract description
-        desc = None
-        desc_el = (
-            soup.find("div", {"class": re.compile(r"show-more-less-html__markup|description__text|details-pane__content")})
-            or soup.find("div", {"class": re.compile(r"job-description|job_description|description|posting-requirements|job-details")})
-            or soup.find("section", {"class": re.compile(r"description|job-description")})
-            or soup.find("div", {"id": re.compile(r"jobDescriptionText|job-description|content")})
-        )
-        if desc_el:
-            desc = clean_html_text(desc_el.get_text(separator="\n"))
-        else:
-            content_el = soup.find("div", {"id": "content"}) or soup.find("div", {"class": "body"}) or soup.find("article") or soup.find("main")
-            if content_el:
-                desc = clean_html_text(content_el.get_text(separator="\n"))
+                if not posted_time:
+                    # Check for Last Updated / Posted date text
+                    m = re.search(r"(?:Last Updated|Posted|Date Posted):\s*([A-Za-z]+\s+\d{1,2},\s*\d{4})", resp.text, re.IGNORECASE)
+                    if m:
+                        raw_d = m.group(1).strip()
+                        try:
+                            d = datetime.strptime(raw_d, "%B %d, %Y")
+                            posted_time = d.strftime("%Y-%m-%d")
+                        except Exception:
+                            posted_time = raw_d
 
-        return desc, posted_time
+                if not posted_time:
+                    time_el = (
+                        soup.find("span", {"class": re.compile(r"posted-time-ago|topcard__flavor--metadata")})
+                        or soup.find("time")
+                    )
+                    if time_el:
+                        txt = time_el.get_text().strip()
+                        if not any(k in txt for k in ["•", "schedule", "locked"]):
+                            posted_time = txt
 
-    except Exception as e:
-        logger.debug(f"Error hydrating URL {url}: {e}")
+                # 2. Extract description
+                desc = _extract_from_soup(soup)
+                if desc:
+                    return desc, posted_time
+
+            except Exception as e:
+                logger.debug(f"Hydration attempt {attempt} for {target_url} failed: {e}")
+                time.sleep(0.5)
 
     return None, None
 
 
 def hydrate_job(job: JobPosting) -> bool:
     """Hydrate a single job posting with complete description, salary, and exact posting age."""
+    if job.description and len(job.description) >= 100:
+        return False
+
     desc, posted_time = fetch_full_job_details(job.job_url)
 
     updated = False
-    if posted_time:
+    if posted_time and not job.date_posted:
         job.date_posted = posted_time
         age_disp, _ = parse_relative_time_to_age(posted_time)
         job.age_display = age_disp
@@ -213,16 +259,19 @@ def hydrate_job(job: JobPosting) -> bool:
     return updated
 
 
-def hydrate_jobs(jobs: List[JobPosting], max_workers: int = 8) -> int:
-    """Hydrate multiple jobs in parallel."""
-    if not jobs:
+def hydrate_jobs(jobs: List[JobPosting], max_workers: int = 5) -> int:
+    """Hydrate jobs in parallel with rate pacing."""
+    # Only target jobs missing adequate descriptions
+    unhydrated = [j for j in jobs if not j.description or len(j.description) < 100]
+    if not unhydrated:
+        logger.info("All jobs already have full descriptions.")
         return 0
 
-    logger.info(f"Hydrating {len(jobs)} jobs in parallel...")
+    logger.info(f"Hydrating {len(unhydrated)} unhydrated jobs in parallel...")
     hydrated_count = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_job = {executor.submit(hydrate_job, j): j for j in jobs}
+        future_to_job = {executor.submit(hydrate_job, j): j for j in unhydrated}
         for future in concurrent.futures.as_completed(future_to_job):
             try:
                 success = future.result()
@@ -231,5 +280,6 @@ def hydrate_jobs(jobs: List[JobPosting], max_workers: int = 8) -> int:
             except Exception as e:
                 logger.debug(f"Hydration thread error: {e}")
 
-    logger.info(f"Successfully hydrated {hydrated_count} jobs.")
+    logger.info(f"Successfully hydrated {hydrated_count} / {len(unhydrated)} jobs.")
     return hydrated_count
+

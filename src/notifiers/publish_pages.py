@@ -18,6 +18,7 @@ from src.engine.scorer import score_job
 from src.engine.salary_parser import extract_salary, format_salary_display
 from src.engine.classifier import classify_role
 from src.scrapers.base import normalize_company, normalize_title
+from src.scrapers.hydrator import hydrate_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,27 @@ def generate_published_site(output_dir: str = "docs") -> str:
     config = load_config(str(ROOT_DIR / "config.yaml"))
     db = Database(str(ROOT_DIR / config.database.path))
 
-    # Rescore all jobs in database to guarantee latest scoring formula & salary display
     all_raw_jobs = db.get_jobs(limit=1000)
+
+    # 0. Fail-safe hydration: ensure any unhydrated active/matching jobs have full descriptions
+    unhydrated = [j for j in all_raw_jobs if not j.description or len(j.description) < 100]
+    if unhydrated:
+        logger.info(f"Publish pipeline hydrating {len(unhydrated)} unhydrated jobs...")
+        hydrate_jobs(unhydrated, max_workers=5)
+        with db._get_connection() as conn:
+            cursor = conn.cursor()
+            for j in unhydrated:
+                if j.description and len(j.description) >= 100:
+                    cursor.execute(
+                        """UPDATE jobs 
+                           SET description = ?, description_snippet = ?, 
+                               date_posted = COALESCE(?, date_posted), age_display = COALESCE(?, age_display)
+                           WHERE id = ?""",
+                        (j.description, j.description_snippet, j.date_posted, j.age_display, j.id)
+                    )
+            conn.commit()
+
+    # Rescore all jobs in database to guarantee latest scoring formula & salary display
     for job in all_raw_jobs:
         # 1. Update salary with latest accurate parser
         if job.description:
